@@ -1,0 +1,115 @@
+# Phase 1 intermediate artifact: the whole stack on one machine.
+#
+# This is a stepping stone, not the deliverable. Its job is to prove the images
+# build and the services talk to each other before any Kubernetes object exists.
+#
+# NOT VERIFIED. The authoring host has no container runtime, so this file has
+# never been run. See VALIDATION.md row C1. Do not read the presence of this
+# file as evidence the stack comes up.
+#
+#   cp .env.example .env    # fill in real values, never commit it
+#   docker compose up --build
+#   ./scripts/healthcheck.sh
+
+name: backbone
+
+# Host-port bindings are deliberately 18xxx, not the 8xxx ports the live droplet
+# uses. Two reasons: during Phase 6 cutover both stacks run side by side on
+# purpose and must not contend for a port, and a healthcheck pointed at 8645
+# silently probed the production gateway once already -- docs/OPERATIONS.md,
+# 2026-07-25 "healthcheck reported a container healthy that was never started".
+
+services:
+  notify-mcp:
+    build:
+      context: ../services/notify-mcp
+    image: backbone/notify-mcp:dev
+    environment:
+      PORT: "8080"
+      BACKBONE_NTFY_TOPIC: "${BACKBONE_NTFY_TOPIC:?set in .env}"
+      # Point at the ntfy in this compose file, not ntfy.sh. Keeps a local run
+      # from pushing to the operator's real phone.
+      BACKBONE_NTFY_BASE_URL: "http://ntfy:80"
+      BACKBONE_NTFY_SHORTCUT_NAME: "Backbone Notify Bridge"
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
+      TELEGRAM_HOME_CHANNEL: "${TELEGRAM_HOME_CHANNEL:-}"
+    ports:
+      - "127.0.0.1:18080:8080"
+    depends_on:
+      ntfy:
+        condition: service_healthy
+    restart: unless-stopped
+    # Mirrors the Kubernetes securityContext so a Compose run exercises the same
+    # constraints. If it breaks here it would have broken in the cluster.
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    # The image is distroless: no shell, no curl, so a `test:` command cannot
+    # run inside it. Compose has no HTTP probe, so healthchecking this service
+    # is delegated to scripts/healthcheck.sh from the host. Kubernetes does not
+    # have this limitation -- httpGet probes are performed by the kubelet.
+    healthcheck:
+      disable: true
+
+  ntfy:
+    image: binwiederhier/ntfy:v2.11.0
+    command: ["serve"]
+    environment:
+      NTFY_BASE_URL: "http://localhost:18081"
+      NTFY_LISTEN_HTTP: ":80"
+      NTFY_CACHE_FILE: "/var/cache/ntfy/cache.db"
+      NTFY_ATTACHMENT_CACHE_DIR: "/var/cache/ntfy/attachments"
+      NTFY_BEHIND_PROXY: "true"
+    volumes:
+      - ntfy-cache:/var/cache/ntfy
+    ports:
+      - "127.0.0.1:18081:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:80/v1/health | grep -q true"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  hermes-gateway:
+    build:
+      context: ../services/hermes-gateway
+      args:
+        HERMES_REF: "${HERMES_REF:-v0.18.0}"
+    image: backbone/hermes-gateway:dev
+    environment:
+      HERMES_HOME: /home/hermes/.hermes
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:?set in .env}"
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
+      TELEGRAM_HOME_CHANNEL: "${TELEGRAM_HOME_CHANNEL:-}"
+      TELEGRAM_ALLOWED_USERS: "${TELEGRAM_ALLOWED_USERS:-}"
+      WEBHOOK_ENABLED: "true"
+      WEBHOOK_HOST: "0.0.0.0"
+      WEBHOOK_PORT: "8645"
+      WEBHOOK_SECRET: "${WEBHOOK_SECRET:?set in .env}"
+    volumes:
+      # One writable path, matching the PVC in Kubernetes. 9.4 GB lives here on
+      # the real host -- see docs/02-STATE-TRADEOFFS.md.
+      - hermes-state:/home/hermes/.hermes
+    ports:
+      - "127.0.0.1:18645:8645"
+    depends_on:
+      - notify-mcp
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    # 210s on the host unit, because the gateway drains in-flight conversations
+    # for up to 180s. Compose's default is 10s, which would SIGKILL mid-turn.
+    stop_grace_period: 240s
+
+volumes:
+  hermes-state:
+  ntfy-cache:
