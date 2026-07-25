@@ -11,7 +11,7 @@
 
 ARG PYTHON_VERSION=3.11-slim
 
-# ---- build ----------------------------------------------------------------
+# ---- source: clone + patch, shared by the python and node stages ----------
 FROM python:${PYTHON_VERSION} AS build
 
 # Pin the upstream tag corresponding to what runs on the live host. Overridable
@@ -59,6 +59,23 @@ ARG HERMES_EXTRAS="mcp,cron,messaging,web,cli"
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir "./hermes-agent[${HERMES_EXTRAS}]"
 
+# ---- web assets -----------------------------------------------------------
+# The pip wheel ships NO built frontend: `find /opt/venv -name web_dist` returns
+# nothing, and `hermes dashboard --skip-build` therefore fails with
+#   "--skip-build was passed but no web dist found"
+# and CrashLoops. The dashboard is a Vite app in the upstream `web` workspace
+# that a Python package has no way to build, so it has to be built here.
+#
+# vite.config.ts sets outDir: "../../hermes_cli/web_dist" -- NOT web/dist --
+# and upstream has a test asserting exactly that invariant. Measured: ~24 s,
+# 2.9 MB of output.
+FROM node:22-bookworm-slim AS webbuild
+COPY --from=build /src/hermes-agent /src/hermes-agent
+WORKDIR /src/hermes-agent
+RUN npm install --workspace web --no-audit --no-fund \
+ && npm run build -w web \
+ && test -d hermes_cli/web_dist || (echo "web_dist not produced" && exit 1)
+
 # ---- runtime --------------------------------------------------------------
 FROM python:${PYTHON_VERSION}
 
@@ -74,6 +91,13 @@ RUN apt-get update \
  && useradd  --uid 10001 --gid 10001 --create-home --home-dir /home/hermes hermes
 
 COPY --from=build /opt/venv /opt/venv
+
+# Drop the built dashboard into the installed package, where hermes_cli looks
+# for it. Ownership is set here rather than at runtime: the root filesystem is
+# read-only, so nothing can chown it later.
+COPY --from=webbuild --chown=10001:10001 \
+     /src/hermes-agent/hermes_cli/web_dist \
+     /opt/venv/lib/python3.11/site-packages/hermes_cli/web_dist
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
