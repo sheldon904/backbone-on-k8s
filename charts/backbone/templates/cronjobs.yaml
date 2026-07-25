@@ -1,0 +1,190 @@
+{{- $ns := include "backbone.namespace" . }}
+{{- $full := include "backbone.fullname" . }}
+{{- $gwName := printf "%s-gateway" $full }}
+{{- $claim := default (printf "%s-state" $gwName) .Values.gateway.persistence.existingClaim }}
+{{- if .Values.audit.enabled }}
+---
+# Audit rotation and pruning.
+#
+# Scope caveat, stated up front: the governance JSONL audit stream the original
+# brief assumes DOES NOT CURRENTLY EMIT. Phase 0 §2 found the governance gate
+# was torn out on 2026-05-24 and the only surviving records are 14 KB frozen in
+# ~/.hermes/archive-backbone-2026-05-24/. This job therefore manages the streams
+# that do emit. docs/RETENTION.md explains the difference and what would have to
+# change to make the governance stream real.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $full }}-audit-rotate
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/component: retention
+spec:
+  schedule: {{ .Values.audit.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 3600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "backbone.labels" . | nindent 12 }}
+            app.kubernetes.io/name: audit-rotate
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            {{- include "backbone.podSecurityContext" .Values.gateway.securityContext | nindent 12 }}
+          # The CronJob mounts the same RWO volume the gateway holds. That works
+          # ONLY when both land on the same node. On single-node k3s that is
+          # automatic; on a multi-node cluster this needs nodeAffinity matching
+          # the volume, or the job sits Pending forever.
+          # docs/02-STATE-TRADEOFFS.md §7.
+          containers:
+            - name: rotate
+              image: {{ include "backbone.image" (list . .Values.gateway.image) }}
+              securityContext:
+                {{- include "backbone.containerSecurityContext" dict | nindent 16 }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  RETENTION={{ .Values.audit.retentionDays }}
+                  cd /home/hermes/.hermes
+                  echo "audit rotation: retention ${RETENTION}d, $(date -Iseconds)"
+                  {{- range .Values.audit.streams }}
+                  f="{{ . }}"
+                  if [ -f "$f" ]; then
+                    sz=$(wc -c < "$f")
+                    # Rotate at 64 MB so a single file cannot fill the volume
+                    # between runs. Copy-then-truncate, not mv: the gateway holds
+                    # an open file descriptor, and mv would leave it writing to
+                    # an unlinked inode that nothing can read.
+                    if [ "$sz" -gt 67108864 ]; then
+                      cp "$f" "${f}.$(date +%Y%m%d)"
+                      : > "$f"
+                      echo "rotated $f (${sz} bytes)"
+                    else
+                      echo "skip $f (${sz} bytes, under threshold)"
+                    fi
+                  fi
+                  {{- end }}
+                  # Prune anything older than the retention window.
+                  find /home/hermes/.hermes/logs -type f -name '*.[0-9]*' \
+                    -mtime "+${RETENTION}" -print -delete 2>/dev/null || true
+                  echo "audit rotation complete"
+              volumeMounts:
+                - name: state
+                  mountPath: /home/hermes/.hermes
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests: { cpu: 50m, memory: 64Mi }
+                limits: { memory: 256Mi }
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: {{ $claim }}
+            - name: tmp
+              emptyDir: {}
+{{- end }}
+{{- if .Values.backup.enabled }}
+---
+# Consistent SQLite backup.
+#
+# Uses sqlite3 .backup, NOT cp. The databases are opened by a live writer; cp on
+# a WAL-mode file copies the main database without the WAL and produces a file
+# that is silently missing the most recent commits, or is outright torn.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $full }}-backup
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "backbone.labels" . | nindent 12 }}
+            app.kubernetes.io/name: backup
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            {{- include "backbone.podSecurityContext" .Values.gateway.securityContext | nindent 12 }}
+          containers:
+            - name: backup
+              image: {{ include "backbone.image" (list . .Values.gateway.image) }}
+              securityContext:
+                {{- include "backbone.containerSecurityContext" dict | nindent 16 }}
+              command: ["python", "-c"]
+              args:
+                - |
+                  import datetime, os, pathlib, sqlite3, sys
+
+                  src = pathlib.Path("/home/hermes/.hermes")
+                  dest = src / "backups" / datetime.date.today().isoformat()
+                  dest.mkdir(parents=True, exist_ok=True)
+
+                  # sqlite3's online backup API takes a consistent snapshot of a
+                  # database that another process is actively writing. This is
+                  # the whole reason this job is Python and not a shell `cp`.
+                  ok = True
+                  for db in sorted(src.glob("*.db")):
+                      try:
+                          with sqlite3.connect(f"file:{db}?mode=ro", uri=True) as s, \
+                               sqlite3.connect(dest / db.name) as d:
+                              s.backup(d)
+                          print(f"backed up {db.name} ({db.stat().st_size} bytes)")
+                      except Exception as e:
+                          ok = False
+                          print(f"FAILED {db.name}: {e}", file=sys.stderr)
+
+                  # Prune old backup directories.
+                  cutoff = datetime.date.today() - datetime.timedelta(
+                      days={{ .Values.backup.retentionDays }})
+                  for d in (src / "backups").iterdir():
+                      if not d.is_dir():
+                          continue
+                      try:
+                          if datetime.date.fromisoformat(d.name) < cutoff:
+                              for f in d.iterdir():
+                                  f.unlink()
+                              d.rmdir()
+                              print(f"pruned {d.name}")
+                      except ValueError:
+                          pass  # not a dated directory, leave it alone
+
+                  # NOTE: this writes to the SAME volume as the data. That is not
+                  # a backup, it is a copy -- it survives file deletion and
+                  # nothing else. Shipping off-cluster is tracked as S2 in
+                  # docs/02-STATE-TRADEOFFS.md and is NOT done here.
+                  sys.exit(0 if ok else 1)
+              volumeMounts:
+                - name: state
+                  mountPath: /home/hermes/.hermes
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests: { cpu: 100m, memory: 128Mi }
+                limits: { memory: 512Mi }
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: {{ $claim }}
+            - name: tmp
+              emptyDir: {}
+{{- end }}
