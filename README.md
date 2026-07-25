@@ -58,6 +58,8 @@ backbone-on-k8s/
 ├── charts/backbone/             the values-driven chart, translated from manifests/
 ├── compose/                     the Phase 1 intermediate artifact
 ├── observability/               Grafana dashboard
+├── runbook/                     prerequisites · install · failure modes · rollback
+├── evidence/                    dated kubectl/helm/cilium output from live runs
 └── scripts/                     validate.sh, parity-check.sh, healthcheck.sh
 ```
 
@@ -160,10 +162,10 @@ far — it revealed that the running checkout carries a local patch my Phase 0 a
 
 ## What is deliberately not here
 
-- **`docs/WHY-NOT-COMPOSE.md` is a stub.** The brief says to write it *after* Phase 6, from
-  experience. I have not operated this on a cluster, so I do not yet know where Compose stopped
-  being enough. Writing it now would be inventing the answer to the most interesting question in
-  the project.
+- **`docs/WHY-NOT-COMPOSE.md` is nearly empty, on purpose.** It has exactly **one** entry, earned
+  on 2026-07-25 when Compose needed a privileged helper container to do what `fsGroup` does in
+  two declarative lines. The rest waits for Phase 6. Writing the generic answer now would be
+  inventing the most interesting result in the project.
 - **`ask-hermes` and the voice sidecar** are not containerized. They are real services on the
   host, and they add no Kubernetes concept the notify MCP does not already demonstrate. Scoped
   out rather than padded in.

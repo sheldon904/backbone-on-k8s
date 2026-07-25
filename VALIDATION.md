@@ -99,6 +99,7 @@ k3s v1.36.2 + **Cilium 1.16.5** (flannel disabled — it cannot enforce NetworkP
 | K12 | **The hash chain verifies on-cluster** | both files `VALID=true`, first line `prevHash=0000…` (GENESIS) |
 | K13 | Pod Security Admission `restricted` is enforcing | a non-compliant probe pod was refused by the API server |
 | K14 | Cilium reports policy enforcement on every backbone endpoint | `ingress=both` (ingress+egress) on all 4 |
+| K15 | **The runbook is written from a real install** | [`runbook/`](runbook/) — prerequisites, install, 10 failure modes, rollback. Every failure listed occurred during the reference run |
 
 ## 3. Requires the live cluster — not done
 
