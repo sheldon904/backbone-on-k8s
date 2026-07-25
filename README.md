@@ -4,7 +4,8 @@ Kubernetes deployment of **Backbone** — my personal always-on agent system: a 
 gateway, an MCP tool server, and a notification bridge, currently running as systemd units on a
 DigitalOcean droplet.
 
-**Status: artifacts built and statically verified. Nothing has run on a cluster.**
+**Status: artifacts built, statically verified, and both images build green in CI. Nothing has
+run on a cluster.**
 
 That sentence is the whole README in miniature, and the rest of this file does not walk it
 back. [`VALIDATION.md`](./VALIDATION.md) is the authoritative record of what has been observed
@@ -111,10 +112,13 @@ with correct headers, `/metrics` moves, the chart lints and renders across four 
 versions, 21 parity constraints hold, and SQLite's online backup produces an integrity-checked
 copy of a live 22 MB WAL-mode database in 0.18 s.
 
-**Not verified** — everything requiring a cluster. No pod has ever been scheduled. The
-`hermes-gateway` image has never been built anywhere except CI. Keycloak login, NetworkPolicy
-enforcement, sealed-secrets round-trip, and the Grafana dashboard showing real numbers are all
-unproven.
+**Verified in CI** (8 rows) — both images build; the runtime image is asserted to have no shell
+and run as uid 65532; the built container serves MCP over HTTP; the chart validates on
+Kubernetes 1.29 through 1.32.
+
+**Not verified** — everything requiring a cluster. No pod has ever been scheduled. Keycloak
+login, NetworkPolicy enforcement, sealed-secrets round-trip, and the Grafana dashboard showing
+real numbers are all unproven.
 
 **Every phase gate is unmet.** The original brief required stopping at each gate until I had
 observed something running; this build was directed to produce the full artifact set without
@@ -149,9 +153,10 @@ cd services/notify-mcp && npm ci && npx tsc && node --test dist/*.test.js
 
 CI ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)) additionally does what this
 droplet cannot: builds the images, proves the runtime image has no shell and runs as uid 65532,
-and attempts the gateway build. That last job is `continue-on-error` on purpose — it has never
-succeeded, and I would rather see it reported than have it block everything else while I pretend
-it works.
+and builds the gateway image. That last job is `continue-on-error` on purpose, and it earned it:
+the first run failed and the failure turned out to be the most useful thing in the project so
+far — it revealed that the running checkout carries a local patch my Phase 0 audit missed
+([`docs/OPERATIONS.md`](./docs/OPERATIONS.md)). It builds green now.
 
 ## What is deliberately not here
 

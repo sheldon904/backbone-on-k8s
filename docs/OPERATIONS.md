@@ -219,3 +219,27 @@ and never ran `git status`. One command, and it was the one that mattered.
 **Kept as a lesson.** "Pin the version you observed" is only as good as the observation. A
 version string printed by an application is a claim about itself, not a fact about its source
 tree. `git status` on a vendored checkout is not optional.
+
+## 2026-07-25 — gateway image builds green
+
+Follow-up to the entry above. With `HERMES_REF=v2026.7.1` and the patch regenerated from the
+real diff rather than hand-written, the build succeeds:
+
+```
+#13 0.048 applying 0001-cron-memory-opt-in.patch
+#13 0.050 Checking patch cron/scheduler.py...
+...
+size: 365353842 bytes, user: 10001:10001
+```
+
+The tag is confirmed by upstream's own commit message: `chore: release v0.18.0 (2026.7.1)`.
+
+**One thing in between was worth noting.** The first patch file was hand-authored and `git apply`
+rejected it — `corrupt patch at line 35`, from writing unified-diff hunk headers by hand around
+a prose preamble. That rejection is the Dockerfile working as designed: no `--3way`, so a patch
+that does not apply cleanly fails the build instead of being skipped. Had it been lenient, the
+image would have built *without* the patch and looked entirely healthy.
+
+[`VALIDATION.md`](../VALIDATION.md) C13 moves to section 2 as CI8. 365 MB is larger than it needs
+to be — the venv carries every optional dependency group named in `HERMES_EXTRAS`, and trimming
+it is worth a pass once there is a cluster to test against.

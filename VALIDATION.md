@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. 29 rows verified locally, 0 in CI, 18 requiring a cluster.
+Last updated: 2026-07-25. **29 rows verified locally, 8 in CI, 17 requiring a cluster.**
 
 ---
 
@@ -56,18 +56,21 @@ Each row names the command and the observed result.
 CI runs on GitHub Actions, which has the Docker, Helm and Kubernetes tooling this droplet does
 not. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-CI is written but **has not run yet** — this table gets filled from the first green run, not
-from the workflow file's existence.
+CI runs on GitHub Actions, which has the Docker, Helm and Kubernetes tooling this droplet does
+not. Rows below are from run
+[`30169059862`](https://github.com/sheldon904/backbone-on-k8s/actions/runs/30169059862) —
+**all 4 jobs green**.
 
 | # | Claim | Job | Result |
 |---|---|---|---|
-| CI1 | notify-mcp typechecks, builds, 22 tests pass on clean Linux | `notify-mcp` | pending first run |
-| CI2 | The HTTP transport answers `tools/list` three times in a row | `notify-mcp` | pending |
-| CI3 | The notify-mcp image builds | `images` | pending |
-| CI4 | The runtime image has **no shell** and runs as uid 65532 | `images` | pending — asserted by exec'ing `/bin/sh` and expecting failure |
-| CI5 | The built image serves MCP over HTTP | `images` | pending |
-| CI6 | Chart renders and validates on k8s 1.29 / 1.30 / 1.31 / 1.32 | `manifests` | pending |
-| CI7 | **The hermes-gateway image builds at all** | `images` (continue-on-error) | pending — expected to be the fragile one |
+| CI1 | notify-mcp typechecks, builds and passes its tests on clean Linux | `notify-mcp` | `tests 22 / pass 22 / fail 0` |
+| CI2 | The HTTP transport answers `initialize` then `tools/list` **three times** | `notify-mcp` | `OK — transport is genuinely stateless` |
+| CI3 | The notify-mcp image builds | `images` | built |
+| CI4 | The runtime image has **no shell** and runs as uid 65532 | `images` | `runs as uid 65532` · `OK — no shell, non-root` — asserted by exec'ing `/bin/sh` and requiring failure |
+| CI5 | The built image serves MCP over HTTP in a container | `images` | `OK — the built image serves MCP` |
+| CI6 | Manifests + chart validate, parity holds | `manifests` | `Valid: 16, Invalid: 0` (manifests), `Valid: 22, Invalid: 0` (rendered chart), `PARITY OK`, `ALL STATIC CHECKS PASSED` |
+| CI7 | Chart renders on Kubernetes 1.29 / 1.30 / 1.31 / 1.32 | `manifests` | all four valid |
+| **CI8** | **The hermes-gateway image builds** | `images` | **built** — `applying 0001-cron-memory-opt-in.patch` → `Checking patch cron/scheduler.py...` → image `365,353,842 bytes, user: 10001:10001`. Took two runs; the first failed on a wrong upstream ref (docs/OPERATIONS.md) |
 
 ## 3. Requires the live cluster — not done
 
@@ -85,9 +88,8 @@ These are unproven. No document in this repo may state them as fact.
 | C8 | Daily workflows run on the cluster for 7 consecutive days | Phase 6, the actual point of the project |
 | C9 | `docs/OPERATIONS.md` contains real incidents | can only be earned by operating it |
 | C10 | hermes-agent v0.18.0 can consume an **HTTP** MCP endpoint (vs. needing a stdio→HTTP shim) | a config experiment against a gateway; not attempted, and out of scope for read-only work on the live host |
-| C11 | `readOnlyRootFilesystem: true` holds for the gateway | only discoverable by running it — it may write outside `~/.hermes` and `~/.cache` |
+| C11 | `readOnlyRootFilesystem: true` holds for the gateway | only discoverable by running it — it may write outside `~/.hermes` and `~/.cache`. The image now builds (CI8), so this is testable as soon as there is a cluster |
 | C12 | The Compose stack comes up and `healthcheck.sh` goes fully green | same blocker as C1 |
-| C13 | The `hermes-gateway` image builds at all | no container runtime here; CI attempts it |
 | C14 | `config.yaml` is assembled at startup from ConfigMap + Secret | **not implemented.** hermes-agent reads one config.yaml; an init container or startup wrapper has to compose it. A real gap, not a detail — docs/04-SECRETS.md §3 |
 | C15 | hermes-agent v0.18.0 actually consumes `LANGFUSE_*` env vars | unconfirmed. The variables are injected because that is the conventional integration; if upstream ignores them, tracing needs a wrapper and the env vars are inert |
 | C16 | NetworkPolicy is **enforced** | k3s ships flannel, which does not enforce NetworkPolicy at all. Needs `--flannel-backend=none --disable-network-policy` plus Calico or Cilium. Until then the policies are accepted by the API server and enforced by nothing |
