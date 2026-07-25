@@ -10,6 +10,11 @@ be established by observation it is marked **UNVERIFIED** rather than guessed.
 
 Secrets are redacted. Token *names* appear; token *values* never do.
 
+The Tailscale tailnet name and node IP are redacted too (`<tailnet>.ts.net`, `100.x.x.x`).
+They are not credentials, but Funnel is **on** for that hostname, so publishing it alongside
+the exact webhook paths in §5 would hand any reader of this public repository a working map
+of a live, internet-reachable surface whose only authentication is a shared secret.
+
 ---
 
 ## 1. The single most important finding
