@@ -311,3 +311,47 @@ reason. This one inverts it: a *test* was red for the right reason, and I nearly
 an environment problem because the box is small and genuinely was loaded. The tell was `sys`
 time — a starved process waits, it does not burn 15 seconds of kernel time. And: never pipe a
 possibly-hanging command through `tail`.
+
+## 2026-07-25 — first real bring-up: gateway CrashLoops on a root-owned volume
+
+**Symptom.** First `docker compose up` on a fresh 8 GB VPS. `notify-mcp` and `ntfy` came up
+healthy; `hermes-gateway` sat in `Restarting (1)`:
+
+```
+PermissionError: [Errno 13] Permission denied: '/home/hermes/.hermes/logs'
+  File ".../hermes_logging.py", line 301, in setup_logging
+    log_dir.mkdir(parents=True, exist_ok=True)
+```
+
+**What I thought.** `readOnlyRootFilesystem: true` — VALIDATION C11, the unknown I had been
+predicting would bite since Phase 1. I expected to be hunting for a path the gateway writes to
+outside `~/.hermes` and `~/.cache`.
+
+**What it actually was.** Not the root filesystem at all. The path it could not write was
+*inside the mounted volume*. Docker creates named volumes root-owned:
+
+```
+$ docker run --rm -v backbone_hermes-state:/v alpine sh -c 'ls -ldn /v'
+drwxr-xr-x 2 0 0 4096 /v
+```
+
+and the container runs as uid 10001 because the image is hardened. So the gateway had a
+writable mount it did not own.
+
+**Fix.** `chown -R 10001:10001` on the volume, then restart — gateway came up, and
+`scripts/healthcheck.sh` went **GREEN** on all seven checks. Codified as a `volume-init`
+one-shot service with `depends_on: condition: service_completed_successfully`.
+
+**The interesting part.** The Kubernetes manifests were *already correct* — `fsGroup: 10001`
+with `fsGroupChangePolicy: OnRootMismatch` has been in the chart since Phase 2, written from
+first principles as "the classic works-as-root, CrashLoopBackOff-as-nonroot failure." I wrote
+that comment before ever running anything. Compose has no equivalent field, so the same
+guarantee needs a privileged helper container and correct `depends_on` condition syntax.
+
+**This is the first earned entry in `docs/WHY-NOT-COMPOSE.md`**, which had been deliberately
+empty. Compose expresses what to run; Kubernetes expresses what must be true. Volume ownership
+is a property, not a step.
+
+**Also worth noting:** C11 is still unproven. `readOnlyRootFilesystem` was **not** the cause
+here and the gateway is currently running *without* it under Compose. The Kubernetes deploy in
+Stage 2 is the real test.

@@ -20,6 +20,23 @@ name: backbone
 # 2026-07-25 "healthcheck reported a container healthy that was never started".
 
 services:
+  # Docker named volumes are created root-owned. The gateway runs as uid 10001
+  # and cannot mkdir inside its own state volume, so it CrashLoops on first
+  # start with:
+  #   PermissionError: [Errno 13] Permission denied: '/home/hermes/.hermes/logs'
+  #
+  # Kubernetes solves this declaratively -- `fsGroup: 10001` on the pod
+  # securityContext, which the chart already sets. Compose has no equivalent, so
+  # the ownership fix has to be an imperative extra service that every operator
+  # has to know about. Observed 2026-07-25; see docs/WHY-NOT-COMPOSE.md.
+  volume-init:
+    image: alpine:3.20
+    user: "0"
+    command: ["sh", "-c", "chown -R 10001:10001 /state && echo 'state volume chowned to 10001:10001'"]
+    volumes:
+      - hermes-state:/state
+    restart: "no"
+
   notify-mcp:
     build:
       context: ../services/notify-mcp
@@ -98,7 +115,12 @@ services:
     ports:
       - "127.0.0.1:18645:8645"
     depends_on:
-      - notify-mcp
+      # Map form, not list -- conditions require it. volume-init must COMPLETE
+      # before the gateway starts, or it CrashLoops on a root-owned volume.
+      notify-mcp:
+        condition: service_started
+      volume-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]
