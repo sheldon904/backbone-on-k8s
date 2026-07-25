@@ -89,9 +89,26 @@ kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/downloa
 **Cause.** The pip wheel ships no built frontend. `find /opt/venv -name web_dist` returns
 nothing. The dashboard needs `npm run build -w web`, which a Python package cannot provide.
 
-**Fix.** Either add a Node build stage to the gateway image, or
-`--set gateway.dashboard.enabled=false`. Disabling it also removes the only web surface, so
-SSO has nothing to sit in front of.
+**Fix (implemented).** A `node:22-bookworm-slim` stage in the gateway Dockerfile builds
+upstream's `web` workspace and the result is copied into the installed package:
+
+```dockerfile
+FROM node:22-bookworm-slim AS webbuild
+COPY --from=build /src/hermes-agent /src/hermes-agent
+WORKDIR /src/hermes-agent
+RUN npm install --workspace web --no-audit --no-fund && npm run build -w web
+
+# ...then in the runtime stage:
+COPY --from=webbuild --chown=10001:10001 \
+     /src/hermes-agent/hermes_cli/web_dist \
+     /opt/venv/lib/python3.11/site-packages/hermes_cli/web_dist
+```
+
+Measured: ~24 s, 2.9 MB, image grows 541 MB → 546 MB. `--chown` at COPY time matters — the
+root filesystem is read-only, so nothing can fix ownership at runtime.
+
+Alternatively `--set gateway.dashboard.enabled=false`, but that removes the only web surface
+and leaves SSO nothing to sit in front of.
 
 ---
 
