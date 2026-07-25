@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25.
+Last updated: 2026-07-25. 29 rows verified locally, 0 in CI, 18 requiring a cluster.
 
 ---
 
@@ -38,15 +38,36 @@ Each row names the command and the observed result.
 | L15 | `/readyz` returns 503 with no channel configured | `readiness(configFromEnv({}))` + unit test | 503 `no delivery channel configured` |
 | L16 | `scripts/healthcheck.sh` is syntactically valid and correctly reports partial stacks | `bash -n`; then run against notify-mcp only | 5 notify checks ok, ntfy FAIL, gateway **skip** (correctly not claimed) |
 | L17 | No NUL bytes in tracked source | `grep -rlP '\x00' --include='*.ts' --include='*.json' --include='*.md' .` | no output |
+| L18 | Manifests are valid Kubernetes | `kubeconform -strict -kubernetes-version 1.31.0 manifests/` | **15 resources, 0 invalid** |
+| L19 | SQLite online `.backup` is consistent against a **live** writer | `s.backup(d)` against `~/.hermes/memory_store.db` while the gateway held it open | source `journal_mode=wal`; copy `integrity_check ok`, 25 tables, `facts 1593 / entities 921 / edges 3239`, 22 MB in **0.18 s** |
+| L20 | Chart lints and renders | `helm lint` + `helm template` | lint 0 failed; **23 resources** at defaults |
+| L21 | Chart renders across 4 Kubernetes versions and 3 value sets | `helm template \| kubeconform` for 1.29–1.32; `ci/*.yaml` | all valid; minimal 7, existing-claim 22, full-controls 26 resources |
+| L22 | Exposing the dashboard without SSO is **refused**, not warned | `helm template --set ingress.exposeDashboard=true` | template fails with the reason |
+| L23 | Chart and manifests agree on every correctness constraint | `./scripts/parity-check.sh` | **21/21 ok** |
+| L24 | Every rendered container satisfies `restricted` PSS | parity-check | `allowPrivilegeEscalation: false` and `drop: [ALL]` on all containers; no `runAsUser: 0`; `RuntimeDefault` on every pod |
+| L25 | Default-deny covers **both** directions, and metadata is blocked | parity-check, parsing the NetworkPolicy | `policyTypes: [Ingress, Egress]` with empty `podSelector`; `169.254.0.0/16` in the egress `except` list |
+| L26 | The chart never templates a Secret | parity-check | 0 `kind: Secret` in rendered output; no `secrets.values` map |
+| L27 | Grafana dashboard is valid JSON, every panel has a query | `json.load` + panel walk | 14 panels / 5 rows, 0 panels without a query |
+| L28 | No "recall latency" anywhere | regex over the dashboard JSON | appears only in the description explaining its deliberate absence; **0 queries reference it** |
+| L29 | Full static suite passes end to end | `./scripts/validate.sh` | `ALL STATIC CHECKS PASSED`, exit 0 |
 
 ## 2. Verified in CI
 
 CI runs on GitHub Actions, which has the Docker, Helm and Kubernetes tooling this droplet does
 not. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
+CI is written but **has not run yet** — this table gets filled from the first green run, not
+from the workflow file's existence.
+
 | # | Claim | Job | Result |
 |---|---|---|---|
-| — | *(nothing yet — CI not written as of this commit)* | | |
+| CI1 | notify-mcp typechecks, builds, 22 tests pass on clean Linux | `notify-mcp` | pending first run |
+| CI2 | The HTTP transport answers `tools/list` three times in a row | `notify-mcp` | pending |
+| CI3 | The notify-mcp image builds | `images` | pending |
+| CI4 | The runtime image has **no shell** and runs as uid 65532 | `images` | pending — asserted by exec'ing `/bin/sh` and expecting failure |
+| CI5 | The built image serves MCP over HTTP | `images` | pending |
+| CI6 | Chart renders and validates on k8s 1.29 / 1.30 / 1.31 / 1.32 | `manifests` | pending |
+| CI7 | **The hermes-gateway image builds at all** | `images` (continue-on-error) | pending — expected to be the fragile one |
 
 ## 3. Requires the live cluster — not done
 
@@ -67,6 +88,11 @@ These are unproven. No document in this repo may state them as fact.
 | C11 | `readOnlyRootFilesystem: true` holds for the gateway | only discoverable by running it — it may write outside `~/.hermes` and `~/.cache` |
 | C12 | The Compose stack comes up and `healthcheck.sh` goes fully green | same blocker as C1 |
 | C13 | The `hermes-gateway` image builds at all | no container runtime here; CI attempts it |
+| C14 | `config.yaml` is assembled at startup from ConfigMap + Secret | **not implemented.** hermes-agent reads one config.yaml; an init container or startup wrapper has to compose it. A real gap, not a detail — docs/04-SECRETS.md §3 |
+| C15 | hermes-agent v0.18.0 actually consumes `LANGFUSE_*` env vars | unconfirmed. The variables are injected because that is the conventional integration; if upstream ignores them, tracing needs a wrapper and the env vars are inert |
+| C16 | NetworkPolicy is **enforced** | k3s ships flannel, which does not enforce NetworkPolicy at all. Needs `--flannel-backend=none --disable-network-policy` plus Calico or Cilium. Until then the policies are accepted by the API server and enforced by nothing |
+| C17 | Sealed-secrets key rotation | the controller supports it; nothing in this repo drives it |
+| C18 | etcd encryption at rest | off by default on k3s; `--secrets-encryption` is a bootstrap flag, out of scope for the chart |
 
 ## 4. Why this environment cannot verify more
 
