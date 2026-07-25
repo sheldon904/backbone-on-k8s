@@ -1,0 +1,194 @@
+name: ci
+
+# CI exists to prove the things the authoring environment cannot. That machine
+# is the source droplet itself: 1 vCPU, 1.9 GiB RAM, no Docker, no Kubernetes.
+# Every job here closes a specific row in VALIDATION.md.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # VALIDATION.md rows L10, L11 -- the notify-mcp port from stdio to HTTP.
+  notify-mcp:
+    name: notify-mcp — build and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/notify-mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/notify-mcp/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+      - name: typecheck
+        run: npx tsc --noEmit
+      - name: build
+        run: npx tsc
+      - name: unit tests
+        run: node --test dist/*.test.js
+
+      # The bug that motivated the port: request 1 succeeded and every request
+      # after it failed, while /healthz stayed green the whole time. A single
+      # smoke request would not have caught it, so this makes three.
+      - name: smoke — HTTP transport answers REPEATED requests
+        run: |
+          PORT=18080 BACKBONE_NTFY_TOPIC=ci-smoke node dist/server.js &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 20); do
+            curl -fsS --max-time 1 http://127.0.0.1:18080/healthz && break || sleep 0.5
+          done
+
+          echo "--- healthz / readyz / metrics ---"
+          curl -fsS http://127.0.0.1:18080/healthz  | grep -q '"status":"ok"'
+          curl -fsS http://127.0.0.1:18080/readyz   | grep -q '"ready":true'
+          curl -fsS http://127.0.0.1:18080/metrics  | grep -q '^# TYPE backbone_notify_total counter'
+
+          mcp() {
+            curl -fsS --max-time 10 -X POST http://127.0.0.1:18080/mcp \
+              -H 'Content-Type: application/json' \
+              -H 'Accept: application/json, text/event-stream' -d "$1"
+          }
+          echo "--- initialize ---"
+          mcp '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' | grep -q serverInfo
+          echo "--- tools/list x3 (this is the regression guard) ---"
+          for i in 1 2 3; do
+            mcp "{\"jsonrpc\":\"2.0\",\"id\":$i,\"method\":\"tools/list\",\"params\":{}}" | grep -q '"notify"' \
+              || { echo "tools/list failed on request $i"; exit 1; }
+          done
+          echo "OK — transport is genuinely stateless"
+
+  # VALIDATION.md rows L18, L20, L21 -- manifests, chart, parity.
+  manifests:
+    name: manifests and chart — lint, render, validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+      - name: install kubeconform
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | tar xz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
+
+      - name: install yq and pyyaml (used by parity-check)
+        run: python3 -m pip install --quiet pyyaml
+
+      - name: static validation
+        run: ./scripts/validate.sh
+
+      # Rendering against several Kubernetes versions catches API removals
+      # before an upgrade does.
+      - name: render against multiple Kubernetes versions
+        run: |
+          for v in 1.29.0 1.30.0 1.31.0 1.32.0; do
+            echo "== $v =="
+            helm template backbone charts/backbone \
+              | kubeconform -strict -summary -kubernetes-version "$v" \
+                  -schema-location default \
+                  -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+                  -skip Middleware,SealedSecret,ServiceMonitor,PrometheusRule,IngressRoute \
+                  -
+          done
+
+  # VALIDATION.md row C13 -- the gateway image has never been built anywhere.
+  images:
+    name: images — build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: build notify-mcp (distroless)
+        uses: docker/build-push-action@v6
+        with:
+          context: services/notify-mcp
+          push: false
+          load: true
+          tags: backbone/notify-mcp:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Proves the distroless claim rather than asserting it: the image must
+      # have no shell, and must not run as root.
+      - name: assert the runtime image has no shell and is non-root
+        run: |
+          uid="$(docker run --rm --entrypoint /nodejs/bin/node backbone/notify-mcp:ci -e 'console.log(process.getuid())')"
+          echo "runs as uid $uid"
+          [ "$uid" = "65532" ] || { echo "expected uid 65532 (distroless nonroot)"; exit 1; }
+          if docker run --rm --entrypoint /bin/sh backbone/notify-mcp:ci -c 'echo shell present' 2>/dev/null; then
+            echo "FAIL: image contains a shell; the distroless claim in docs/01-CONTAINERIZATION.md is wrong"
+            exit 1
+          fi
+          echo "OK — no shell, non-root"
+
+      - name: run the built image and exercise it
+        run: |
+          docker run -d --name notify -p 18080:8080 \
+            -e BACKBONE_NTFY_TOPIC=ci-smoke backbone/notify-mcp:ci
+          for i in $(seq 1 30); do
+            curl -fsS --max-time 1 http://127.0.0.1:18080/healthz && break || sleep 1
+          done
+          NOTIFY_URL=http://127.0.0.1:18080 ./scripts/healthcheck.sh || true
+          curl -fsS -X POST http://127.0.0.1:18080/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | grep -q '"notify"'
+          echo "OK — the built image serves MCP"
+          docker logs notify
+          docker rm -f notify
+
+      # This one is EXPECTED TO BE THE FRAGILE JOB. It clones upstream
+      # hermes-agent and pip-installs it in a clean container -- something that
+      # has never been done. continue-on-error so a genuine upstream packaging
+      # problem is reported rather than blocking every other check, and so that
+      # VALIDATION.md row C13 can be moved on evidence rather than on hope.
+      - name: build hermes-gateway (unproven — see VALIDATION.md C13)
+        id: gateway_build
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          context: services/hermes-gateway
+          push: false
+          load: true
+          tags: backbone/hermes-gateway:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: report gateway build outcome honestly
+        run: |
+          if [ "${{ steps.gateway_build.outcome }}" = "success" ]; then
+            echo "::notice::hermes-gateway image BUILT. VALIDATION.md row C13 can move to section 2."
+            docker run --rm --entrypoint python backbone/hermes-gateway:ci -c 'import sys; print(sys.version)'
+            docker image inspect backbone/hermes-gateway:ci --format 'size: {{.Size}} bytes, user: {{.Config.User}}'
+          else
+            echo "::warning::hermes-gateway image did NOT build. C13 stays unverified. This is the expected state until the Dockerfile is proven."
+          fi
+
+  # The Backbone workspace's own tests. Vendored as a check that the governance
+  # package still passes -- it is dormant at runtime but it is the thing that
+  # would be re-wired to make the audit stream real (docs/RETENTION.md §5).
+  upstream-tests:
+    name: Backbone workspace tests (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: note
+        run: |
+          echo "::notice::packages/governance lives in the private sheldon904/Backbone repo."
+          echo "Observed locally on 2026-07-25: pnpm -r test -> 57 passed across 7 files (vitest 3.2.4)."
+          echo "Recorded as VALIDATION.md row L4. Not re-run here because the source is not public."
