@@ -1,0 +1,24 @@
+{
+  "name": "@backbone-k8s/notify-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backbone notify MCP over Streamable HTTP. Port of the stdio server in Backbone/adapters/mcp-governance so it can run as its own pod.",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/*.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
