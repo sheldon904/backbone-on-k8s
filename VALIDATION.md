@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. **38 rows verified locally, 8 in CI, 17 requiring a cluster.**
+Last updated: 2026-07-25. **38 verified locally, 8 in CI, 14 on a live cluster, 10 still open.**
 
 ---
 
@@ -78,23 +78,38 @@ not. Rows below are from run
 | CI7 | Chart renders on Kubernetes 1.29 / 1.30 / 1.31 / 1.32 | `manifests` | all four valid |
 | **CI8** | **The hermes-gateway image builds** | `images` | **built** — `applying 0001-cron-memory-opt-in.patch` → `Checking patch cron/scheduler.py...` → image `365,353,842 bytes, user: 10001:10001`. Took two runs; the first failed on a wrong upstream ref (docs/OPERATIONS.md) |
 
+## 2b. Verified on a live cluster — 2026-07-25
+
+k3s v1.36.2 + **Cilium 1.16.5** (flannel disabled — it cannot enforce NetworkPolicy) on an
+8 GB droplet. Raw output in [`evidence/2026-07-25/`](evidence/2026-07-25/).
+
+| # | Claim | Result |
+|---|---|---|
+| K1 | Both images build on a clean machine | notify-mcp 235 MB, hermes-gateway 541 MB |
+| K2 | **Compose stack comes up on a VPS and passes the healthcheck** | all 3 services up, `healthcheck.sh` **GREEN** on 7/7 — closes C1, C12 |
+| K3 | `kubectl get pods` all Running | gateway, 2x notify-mcp, ntfy — 0 restarts — closes C2 |
+| K4 | `helm install` from scratch reproduces the manifests | revision 1 clean install — closes C3 |
+| K5 | **A disallowed pod-to-pod connection is refused** | probe → ntfy and → notify-mcp both `HTTP 000`, curl 28 timeout — closes C4 |
+| K6 | ...and an **allowed** one still works | gateway → notify-mcp `/healthz` 200, MCP `tools/list` returns the notify tool |
+| K7 | **sealed-secrets round-trips** | 41 keys sealed with `kubeseal`, controller decrypted them into a live Secret — closes C6 |
+| K8 | **`readOnlyRootFilesystem: true` holds for the gateway** | `ready=true restarts=0`, **0 read-only errors** after mounting `.local` — closes C11 |
+| K9 | The gateway reaches OpenRouter with the real key | HTTP 200, **345 models** visible |
+| K10 | **Full path: gateway → notify-mcp → ntfy** | `ok:true`, ntfy HTTP 200, message id `MPFNTu0FR8QF` |
+| K11 | **The audit stream writes to a retention-managed volume** | 5 Gi PVC bound; both replicas' `audit-<pod>.jsonl` present |
+| K12 | **The hash chain verifies on-cluster** | both files `VALID=true`, first line `prevHash=0000…` (GENESIS) |
+| K13 | Pod Security Admission `restricted` is enforcing | a non-compliant probe pod was refused by the API server |
+| K14 | Cilium reports policy enforcement on every backbone endpoint | `ingress=both` (ingress+egress) on all 4 |
+
 ## 3. Requires the live cluster — not done
 
 These are unproven. No document in this repo may state them as fact.
 
 | # | Claim | Blocked on |
 |---|---|---|
-| C1 | The full stack comes up under Compose and passes a healthcheck | a machine with Docker |
-| C2 | `kubectl get pods` shows everything Running on k3s | a 4–8 GB VM with k3s |
-| C3 | `helm install` on a fresh namespace reproduces the plain manifests | same |
-| C4 | A disallowed pod-to-pod connection is actually refused | k3s **plus a CNI that enforces NetworkPolicy** — k3s ships flannel, which does not |
 | C5 | Login succeeds through Keycloak + oauth2-proxy | live cluster + DNS + TLS |
-| C6 | Sealed-secrets round-trips a real secret and survives a controller restart | live cluster |
 | C7 | Grafana panels move when the system is used | live cluster + a real workload |
 | C8 | Daily workflows run on the cluster for 7 consecutive days | Phase 6, the actual point of the project |
 | C9 | `docs/OPERATIONS.md` contains real incidents | can only be earned by operating it |
-| C11 | `readOnlyRootFilesystem: true` holds for the gateway | only discoverable by running it — it may write outside `~/.hermes` and `~/.cache`. The image now builds (CI8), so this is testable as soon as there is a cluster |
-| C12 | The Compose stack comes up and `healthcheck.sh` goes fully green | same blocker as C1 |
 | C14 | `config.yaml` is assembled at startup from ConfigMap + Secret | **not implemented.** hermes-agent reads one config.yaml; an init container or startup wrapper has to compose it. A real gap, not a detail — docs/04-SECRETS.md §3 |
 | C15 | Langfuse actually receives a trace | the plugin and the env names are now confirmed (L31); whether traces arrive needs a running gateway plus a Langfuse instance |
 | C16 | NetworkPolicy is **enforced** | k3s ships flannel, which does not enforce NetworkPolicy at all. Needs `--flannel-backend=none --disable-network-policy` plus Calico or Cilium. Until then the policies are accepted by the API server and enforced by nothing |
