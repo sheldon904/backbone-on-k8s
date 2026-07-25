@@ -1,0 +1,29 @@
+# SSO proof — Keycloak 26.0 + oauth2-proxy 7.7.1 — 2026-07-25T23:39:49+00:00
+
+## Realm/client
+  realm=backbone client=backbone-dashboard user=sheldon
+  issuer=http://keycloak.identity.svc.cluster.local:8080/realms/backbone
+
+## A. cookieSecure=false (TLS terminated elsewhere) — flow COMPLETES
+STEP 1  unauthenticated GET / -> HTTP 302
+        redirected to: http://keycloak.identity.svc.cluster.local:8080/realms/backbone/protocol/openid-connect/auth?approval_prompt=f
+STEP 2  follow to Keycloak login form -> HTTP 200 | login form present: True
+STEP 3  POST credentials -> HTTP 302 | callback: http://127.0.0.1:4180/oauth2/callback
+        authorization code issued: True
+STEP 4  oauth2-proxy exchanges the code -> HTTP 302 -> /
+        cookies now held: ['_oauth2_proxy', 'AUTH_SESSION_ID', 'KEYCLOAK_IDENTITY', 'KEYCLOAK_SESSION']
+STEP 5  authenticated GET / -> HTTP 200 | bytes: 721
+        looks like the dashboard: True
+
+RESULT: full OIDC authorization-code flow completed; dashboard served only after auth.
+
+## B. cookieSecure=true over plain http — flow is REFUSED (control working)
+STEP 1  unauthenticated GET / -> HTTP 302
+STEP 2  follow to Keycloak login form -> HTTP 200 | login form present: True
+STEP 3  POST credentials -> HTTP 302 | callback: http://127.0.0.1:4180/oauth2/callback
+STEP 4  oauth2-proxy exchanges the code -> HTTP 403 -> 
+STEP 5  authenticated GET / -> Traceback (most recent call last):
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 403: Forbidden
+  oauth2-proxy reason:
+    CSRF cookie with name '_oauth2_proxy_csrf' was not found

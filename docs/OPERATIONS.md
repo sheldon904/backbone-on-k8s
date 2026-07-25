@@ -434,3 +434,54 @@ violates PodSecurity "restricted:latest": allowPrivilegeEscalation != false, ...
 
 `pod-security.kubernetes.io/enforce: restricted` on the namespace, set in Phase 2 and never
 tested until something non-compliant tried to run. It worked.
+
+## 2026-07-25 — Keycloak SSO: three failures, all of them the control working
+
+Keycloak 26.0 + Postgres in an `identity` namespace, oauth2-proxy 7.7.1 as a sidecar in the
+gateway pod. Three things failed before the login worked, and none of them were bugs in the
+sense of "something is broken" — each was a security control doing its job.
+
+**1. oauth2-proxy CrashLooped 5× on OIDC discovery.**
+
+```
+Failed to initialise OAuth2 Proxy: ... dial tcp 10.43.59.154:8080: i/o timeout
+```
+
+Keycloak is a ClusterIP in `10.43.0.0/16`, inside the `10.0.0.0/8` that the external-egress
+rule excludes. **Third instance of the same trap** — turning on `sso.enabled` was not enough;
+the path to the identity provider had to be opened too (rule 5b). By this point the pattern is
+clear enough to state as a rule: *every in-cluster destination needs its own egress policy,
+because the internet-egress rule denies all of RFC1918 by design.*
+
+**2. Keycloak returned HTTP 400 on the authorization request.**
+
+oauth2-proxy derives its callback from the request host and **forces `https`** whenever
+`--cookie-secure=true`. It was sending `https://127.0.0.1:4180/oauth2/callback` against an http
+listener, and no registered redirect URI matched. Fixed with an explicit `sso.redirectUrl`
+rather than by guessing what host it would pick.
+
+**3. The callback returned 403: `CSRF cookie '_oauth2_proxy_csrf' was not found`.**
+
+This one is the interesting one. The CSRF cookie is set `Secure`, so no client will send it
+back over plain http — the cookie was issued at step 1 and silently dropped by step 4.
+
+**That is not a defect.** It is `--cookie-secure=true` preventing a session from being
+established over an insecure transport, which is exactly what it is for. So rather than
+weakening the default, `sso.cookieSecure` became a value that stays `true`, and **both states
+were captured as evidence**:
+
+| Config | Result |
+|---|---|
+| `cookieSecure=false` (TLS terminated elsewhere) | full 5-step flow completes, dashboard 200 |
+| `cookieSecure=true` over plain http | callback **refused**, 403 |
+
+Proving the second is worth as much as proving the first. A login that succeeds tells you the
+flow is wired; a login that is correctly refused tells you the setting is real.
+
+**Verified.** `evidence/2026-07-25/sso-proof.txt` — unauthenticated `GET /` → 302 to Keycloak →
+login form → authorization code → `_oauth2_proxy` session cookie → dashboard HTTP 200. The
+dashboard is never served without a session.
+
+**Caveat, stated.** Keycloak runs `start-dev`, which disables hostname strictness and the HTTPS
+requirement. The OIDC protocol flow is identical — same code exchange, same JWKS verification —
+but this is not a production IdP deployment and the manifest says so inline.

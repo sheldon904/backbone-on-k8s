@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. **38 verified locally, 8 in CI, 14 on a live cluster, 10 still open.**
+Last updated: 2026-07-25. **38 verified locally, 8 in CI, 19 on a live cluster, 8 still open.**
 
 ---
 
@@ -100,6 +100,9 @@ k3s v1.36.2 + **Cilium 1.16.5** (flannel disabled — it cannot enforce NetworkP
 | K13 | Pod Security Admission `restricted` is enforcing | a non-compliant probe pod was refused by the API server |
 | K14 | Cilium reports policy enforcement on every backbone endpoint | `ingress=both` (ingress+egress) on all 4 |
 | K15 | **The dashboard runs** — web assets built in-image | `dashboard: ready=true restarts=0`; log: `using dist at .../hermes_cli/web_dist`. Four containers healthy: gateway, dashboard, 2x notify-mcp, ntfy |
+| K17 | **A real OIDC login succeeds through Keycloak** | 5-step authorization-code flow: 302 → login form → code issued → `_oauth2_proxy` session cookie → dashboard HTTP 200. Closes C5 |
+| K18 | The dashboard is **unreachable without auth** | unauthenticated `GET /` → 302 to Keycloak, never the dashboard |
+| K19 | `--cookie-secure=true` is genuinely enforcing | with the production default, the same flow is **refused** over plain http: `CSRF cookie '_oauth2_proxy_csrf' was not found` → 403 |
 | K16 | **The runbook is written from a real install** | [`runbook/`](runbook/) — prerequisites, install, 10 failure modes, rollback. Every failure listed occurred during the reference run |
 
 ## 3. Requires the live cluster — not done
@@ -108,7 +111,6 @@ These are unproven. No document in this repo may state them as fact.
 
 | # | Claim | Blocked on |
 |---|---|---|
-| C5 | Login succeeds through Keycloak + oauth2-proxy | live cluster + DNS + TLS |
 | C7 | Grafana panels move when the system is used | live cluster + a real workload |
 | C8 | Daily workflows run on the cluster for 7 consecutive days | Phase 6, the actual point of the project |
 | C9 | `docs/OPERATIONS.md` contains real incidents | can only be earned by operating it |
