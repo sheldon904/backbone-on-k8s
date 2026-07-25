@@ -228,6 +228,9 @@ spec:
             - --oidc-issuer-url={{ .Values.sso.issuerUrl }}
             - --client-id={{ .Values.sso.clientId }}
             - --http-address=0.0.0.0:{{ .Values.sso.port }}
+            {{- with .Values.sso.redirectUrl }}
+            - --redirect-url={{ . }}
+            {{- end }}
             - --upstream=http://127.0.0.1:{{ .Values.gateway.dashboard.port }}
             - --cookie-secure=true
             - --cookie-httponly=true

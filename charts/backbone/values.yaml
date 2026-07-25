@@ -239,6 +239,14 @@ sso:
   # the IdP -- without it the sidecar cannot even do OIDC discovery.
   identityNamespace: identity
   identityPort: 8080
+  # Explicit callback URL registered with the IdP.
+  #
+  # Left empty, oauth2-proxy DERIVES it from the request host and forces the
+  # https scheme whenever --cookie-secure=true. That produces
+  # `https://<whatever-host-was-used>/oauth2/callback`, which will not match a
+  # registered redirect URI unless you guessed the host correctly. Set it and
+  # register the same string in Keycloak.
+  redirectUrl: ""”
   emailDomains: []
   allowedGroups: []
 
