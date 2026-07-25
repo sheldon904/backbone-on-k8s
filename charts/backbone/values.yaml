@@ -235,6 +235,10 @@ sso:
   existingSecret: "oauth2-proxy-secrets"
   image: "quay.io/oauth2-proxy/oauth2-proxy:v7.7.1"
   port: 4180
+  # Where Keycloak lives. Used to open the egress path from the gateway pod to
+  # the IdP -- without it the sidecar cannot even do OIDC discovery.
+  identityNamespace: identity
+  identityPort: 8080
   emailDomains: []
   allowedGroups: []
 

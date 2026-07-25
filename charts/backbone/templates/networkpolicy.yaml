@@ -185,6 +185,38 @@ spec:
         - protocol: TCP
           port: {{ .Values.sso.port }}
         {{- end }}
+{{- if .Values.sso.enabled }}
+---
+# 5b. gateway pod -> Keycloak, for the oauth2-proxy sidecar's OIDC discovery and
+# token exchange.
+#
+# Third instance of the same trap: Keycloak is a ClusterIP in 10.43.0.0/16,
+# inside the 10.0.0.0/8 that rule 6 excludes, so without this the sidecar fails
+# with `dial tcp ...:8080: i/o timeout` and CrashLoops on
+# "Failed to initialise OAuth2 Proxy". Enabling SSO is not enough; the path to
+# the IdP has to be opened too.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $full }}-gateway-egress-keycloak
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.sso.identityNamespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.sso.identityPort }}
+{{- end }}
 {{- if .Values.networkPolicy.allowExternalEgress }}
 ---
 # 6. Egress to the public internet -- and ONLY the public internet.
