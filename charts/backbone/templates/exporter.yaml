@@ -1,0 +1,150 @@
+{{- if .Values.exporter.enabled }}
+{{- $name := printf "%s-exporter" (include "backbone.fullname" .) }}
+{{- $gwName := printf "%s-gateway" (include "backbone.fullname" .) }}
+{{- $ns := include "backbone.namespace" . }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: backbone-exporter
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: backbone-exporter
+    app.kubernetes.io/component: metrics
+spec:
+  # replicas: 1, and not a value.
+  #
+  # It mounts the gateway's RWO state volume. A second replica would either be
+  # rejected as Multi-Attach or land on the same node and double every scrape.
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+    # Same reason as the gateway: the RWO volume must be released before the
+    # replacement can bind it.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "backbone.labels" . | nindent 8 }}
+        app.kubernetes.io/name: backbone-exporter
+      annotations:
+        {{- if .Values.monitoring.scrapeAnnotations }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.exporter.port | quote }}
+        prometheus.io/path: "/metrics"
+        {{- end }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.exporter.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.exporter.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.gateway.securityContext.fsGroup }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: exporter
+          image: {{ include "backbone.image" (list . .Values.exporter.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.exporter.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.exporter.port | quote }}
+            - name: BACKBONE_STATE_DIR
+              value: /state
+            - name: PROBE_INTERVAL_SECONDS
+              value: {{ .Values.exporter.probeIntervalSeconds | quote }}
+            - name: PROBE_QUERY
+              value: {{ .Values.exporter.probeQuery | quote }}
+          securityContext:
+            {{- include "backbone.containerSecurityContext" dict | nindent 12 }}
+          volumeMounts:
+            # READ-ONLY. Belt and braces: the mount is readOnly and the exporter
+            # also opens every database with `mode=ro`. Neither alone would be
+            # wrong; both means a code change cannot make it a writer.
+            - name: state
+              mountPath: /state
+              readOnly: true
+          resources:
+            {{- toYaml .Values.exporter.resources | nindent 12 }}
+          livenessProbe:
+            httpGet: { path: /healthz, port: metrics }
+            periodSeconds: 20
+            timeoutSeconds: 3
+          readinessProbe:
+            # 503 when the state directory is unreadable, so an exporter that
+            # cannot see the databases leaves the Service rather than serving
+            # zeros that look like a healthy idle system.
+            httpGet: { path: /readyz, port: metrics }
+            periodSeconds: 15
+            timeoutSeconds: 3
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-state" $gwName) .Values.gateway.persistence.existingClaim }}
+            readOnly: true
+      terminationGracePeriodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: backbone-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: backbone-exporter
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: metrics
+      port: {{ .Values.exporter.port }}
+      targetPort: metrics
+{{- if .Values.networkPolicy.enabled }}
+---
+# Prometheus (in whatever namespace) must be able to scrape it. Without this the
+# default-deny policy makes the exporter invisible to monitoring -- metrics that
+# exist and cannot be collected.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-scrape
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.monitoring.namespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.exporter.port }}
+{{- end }}
+{{- end }}

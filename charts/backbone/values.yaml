@@ -156,6 +156,29 @@ ntfy:
     fsGroup: 2586
 
 # -----------------------------------------------------------------------------
+# backbone-exporter — the metrics hermes-agent does not emit
+# -----------------------------------------------------------------------------
+# Upstream has NO /metrics endpoint (VALIDATION.md L32), so every gateway signal
+# would otherwise be inferred from outside the app. This reads the state the
+# agent already writes and measures recall latency with a synthetic prober.
+exporter:
+  enabled: true
+  image:
+    name: backbone-exporter
+    tag: "0.1.0"
+  port: 9101
+  probeIntervalSeconds: 30
+  # The term the prober searches for. Any common word works; it is measuring the
+  # query path, not looking for a particular answer.
+  probeQuery: "backbone"
+  securityContext:
+    runAsUser: 10002
+    runAsGroup: 10002
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { memory: 128Mi }
+
+# -----------------------------------------------------------------------------
 # Configuration (non-secret)
 # -----------------------------------------------------------------------------
 config:
@@ -291,6 +314,9 @@ monitoring:
     enabled: false
   # Scrape annotations work without the operator, so they are on by default.
   scrapeAnnotations: true
+  # Namespace Prometheus runs in. Used by the exporter's ingress allow rule --
+  # without it, default-deny makes the metrics uncollectable.
+  namespace: monitoring
 
 tracing:
   # Langfuse. Off by default: it needs its own Postgres and an API key.

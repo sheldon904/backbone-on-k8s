@@ -54,6 +54,26 @@ print(hits)
 PYEOF
 }
 
+# Structural probe check. Counting `path: /readyz` across the whole render broke
+# the moment a second workload grew a readiness probe -- assert the specific
+# deployment's readiness and liveness paths instead.
+probe_paths() {
+  python3 - "$1" "$2" <<'PYEOF'
+import sys, yaml
+render, app = sys.argv[1], sys.argv[2]
+for doc in yaml.safe_load_all(open(render)):
+    if not doc or doc.get("kind") != "Deployment":
+        continue
+    if doc["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/name") != app:
+        continue
+    c = doc["spec"]["template"]["spec"]["containers"][0]
+    r = (c.get("readinessProbe") or {}).get("httpGet", {}).get("path", "?")
+    l = (c.get("livenessProbe") or {}).get("httpGet", {}).get("path", "?")
+    print(f"{r}|{l}")
+    break
+PYEOF
+}
+
 fails=0
 check() {
   local desc="$1" expected="$2" actual="$3"
@@ -109,7 +129,7 @@ check "seccomp RuntimeDefault on every pod (chart)" \
 check "notify-mcp readiness uses /readyz not /healthz (manifests)" \
   "1" "$(grep -c 'path: /readyz' manifests/20-workloads/notify-mcp.yaml)"
 check "notify-mcp readiness uses /readyz not /healthz (chart)" \
-  "1" "$(grep -c 'path: /readyz' "$RENDER")"
+  "/readyz|/healthz" "$(probe_paths "$RENDER" notify-mcp)"
 
 # The dashboard probe must be exec. httpGet's host is dialled by the kubelet
 # from the node, so 127.0.0.1 there is the node's loopback.
