@@ -106,7 +106,7 @@ subprocesses with `fetch`, which is what makes a distroless image possible.
 
 ## Verified vs. not
 
-**Verified locally** (22 rows in [`VALIDATION.md`](./VALIDATION.md)) — the MCP server compiles,
+**Verified locally** (29 rows in [`VALIDATION.md`](./VALIDATION.md)) — the MCP server compiles,
 22 unit tests pass, the HTTP transport answers repeated requests, a `tools/call` reaches a sink
 with correct headers, `/metrics` moves, the chart lints and renders across four Kubernetes
 versions, 21 parity constraints hold, and SQLite's online backup produces an integrity-checked
