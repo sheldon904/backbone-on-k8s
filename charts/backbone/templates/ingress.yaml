@@ -1,0 +1,70 @@
+{{- if .Values.ingress.enabled }}
+{{- if and .Values.ingress.exposeDashboard (not .Values.sso.enabled) }}
+{{- fail "ingress.exposeDashboard requires sso.enabled. Routing the dashboard without oauth2-proxy in front of it would publish an unauthenticated UI -- Phase 0 found dashboard.oauth and dashboard.basic_auth both empty on the live host." }}
+{{- end }}
+{{- $ns := include "backbone.namespace" . }}
+{{- $full := include "backbone.fullname" . }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $full }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.ingress.tls.enabled }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.tls.clusterIssuer }}
+    {{- end }}
+    {{- if .Values.ingress.rateLimit.enabled }}
+    traefik.ingress.kubernetes.io/router.middlewares: "{{ $ns }}-{{ $full }}-ratelimit@kubernetescrd"
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts: [{{ .Values.ingress.host | quote }}]
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          # Machine-to-machine callbacks (Vapi, Photon). These cannot do OIDC,
+          # so they authenticate with a shared secret in the request and stay
+          # outside the Keycloak flow deliberately. docs/04-SSO.md §4.
+          - path: {{ .Values.ingress.webhookPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $full }}-gateway
+                port:
+                  name: webhook
+          {{- if .Values.ingress.exposeDashboard }}
+          # Reaches oauth2-proxy, never the dashboard directly -- the dashboard
+          # is bound to pod-loopback.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $full }}-gateway-dashboard
+                port:
+                  number: 80
+          {{- end }}
+{{- if .Values.ingress.rateLimit.enabled }}
+---
+# The webhook paths are internet-reachable and authenticated only by a shared
+# secret, so the cost of guessing should not be unbounded.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $full }}-ratelimit
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  rateLimit:
+    average: {{ .Values.ingress.rateLimit.average }}
+    burst: {{ .Values.ingress.rateLimit.burst }}
+{{- end }}
+{{- end }}

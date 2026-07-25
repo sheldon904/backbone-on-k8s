@@ -1,0 +1,14 @@
+# The other extreme: no ingress, no policies, ephemeral state. Proves nothing
+# is unconditionally required and the chart installs on a bare cluster.
+ingress: { enabled: false }
+networkPolicy: { enabled: false }
+audit: { enabled: false }
+backup: { enabled: false }
+ntfy: { enabled: false }
+gateway:
+  persistence: { enabled: false }
+  dashboard: { enabled: false }
+notifyMcp:
+  replicas: 1
+  podDisruptionBudget: { enabled: false }
+  topologySpread: { enabled: false }

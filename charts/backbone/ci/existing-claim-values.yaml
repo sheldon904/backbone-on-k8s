@@ -1,0 +1,5 @@
+# Reuse of a pre-existing PVC -- the realistic migration path, where the volume
+# is restored from the droplet's data before the chart is installed.
+gateway:
+  persistence:
+    existingClaim: hermes-state-restored

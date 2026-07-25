@@ -1,0 +1,107 @@
+{{- $ns := include "backbone.namespace" . }}
+{{- $full := include "backbone.fullname" . }}
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $full }}-notify-mcp
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.serviceMonitor.labels }}{{ toYaml . | nindent 4 }}{{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.monitoring.serviceMonitor.interval }}
+{{- end }}
+{{- if .Values.monitoring.prometheusRule.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ $full }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: backbone.rules
+      rules:
+        # Kubernetes CrashLoopBackOff retries forever; systemd's
+        # StartLimitBurst gives up and goes quiet. Nothing on this cluster
+        # replaces that "give up and tell a human" behaviour, so this alert is
+        # the replacement. docs/01-CONTAINERIZATION.md §3.
+        - alert: BackboneGatewayRestartLoop
+          expr: |
+            increase(kube_pod_container_status_restarts_total{
+              namespace="{{ $ns }}", container="gateway"}[30m]) > 3
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "hermes-gateway restarted more than 3 times in 30 minutes"
+            description: >-
+              The gateway is the sole writer to every SQLite store and hosts the
+              cron scheduler in-process, so a restart loop means all scheduled
+              work has stopped. Kubernetes will retry indefinitely; nothing will
+              escalate this on its own.
+
+        # The gateway cannot be scaled, so it being down is a total outage.
+        - alert: BackboneGatewayDown
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="{{ $ns }}", deployment="{{ $full }}-gateway"} < 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "hermes-gateway has no available replica"
+            description: "replicas is permanently 1, so this is a full outage of every channel and all 8 cron jobs."
+
+        # Every delivery channel failing is worth waking up for: it is the path
+        # by which the system tells its operator anything at all.
+        - alert: BackboneNotifyAllChannelsFailing
+          expr: |
+            increase(backbone_notify_failed_total[15m]) > 0
+            and increase(backbone_notify_total[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "notifications are failing on every channel"
+            description: "Telegram AND ntfy both failed. The system has no way to reach its operator."
+
+        - alert: BackboneNotifyChannelDegraded
+          expr: |
+            increase(backbone_notify_channel_total{outcome="fail"}[30m])
+              / clamp_min(increase(backbone_notify_channel_total[30m]), 1) > 0.5
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: "{{`{{ $labels.channel }}`}} failing more than half the time"
+            description: >-
+              Expected for ntfy: upstream push from this datacenter IP is
+              already rate-limited (Phase 0). Not expected for Telegram.
+
+        # local-path PVCs cannot be expanded online. Running out means a
+        # migration, so the warning has to arrive with weeks of runway.
+        - alert: BackboneStateVolumeFilling
+          expr: |
+            kubelet_volume_stats_available_bytes{namespace="{{ $ns }}"}
+              / kubelet_volume_stats_capacity_bytes{namespace="{{ $ns }}"} < 0.20
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "state volume under 20% free"
+            description: >-
+              local-path does not support online expansion. Recovering from a
+              full volume means a migration, not a resize.
+{{- end }}

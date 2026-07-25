@@ -1,0 +1,16 @@
+# Everything on. CI renders this to prove the Phase 4/5 paths template cleanly,
+# not to suggest this is a tested configuration.
+sso:
+  enabled: true
+  issuerUrl: "https://keycloak.test/realms/backbone"
+  emailDomains: ["example.com"]
+  allowedGroups: ["backbone-admins"]
+ingress:
+  exposeDashboard: true
+monitoring:
+  serviceMonitor: { enabled: true }
+  prometheusRule: { enabled: true }
+tracing:
+  enabled: true
+networkPolicy:
+  enabled: true
