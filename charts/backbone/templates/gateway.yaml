@@ -103,14 +103,22 @@ spec:
             - name: WEBHOOK_PORT
               value: {{ .Values.gateway.webhookPort | quote }}
             {{- if .Values.tracing.enabled }}
-            - name: LANGFUSE_HOST
+            # hermes-agent ships a bundled Langfuse plugin at
+            # plugins/observability/langfuse/. It reads HERMES_LANGFUSE_* --
+            # NOT the bare LANGFUSE_HOST/LANGFUSE_SAMPLE_RATE this chart used
+            # to inject, which the plugin ignores entirely. The bare
+            # LANGFUSE_BASE_URL / _PUBLIC_KEY / _SECRET_KEY are also honoured
+            # as standard SDK vars; both are set so either path works.
+            - name: HERMES_LANGFUSE_BASE_URL
               value: {{ .Values.tracing.host | quote }}
-            - name: LANGFUSE_SAMPLE_RATE
+            - name: LANGFUSE_BASE_URL
+              value: {{ .Values.tracing.host | quote }}
+            - name: HERMES_LANGFUSE_SAMPLE_RATE
               value: {{ .Values.tracing.sampleRate | quote }}
-            - name: LANGFUSE_PUBLIC_KEY
+            - name: HERMES_LANGFUSE_PUBLIC_KEY
               valueFrom:
                 secretKeyRef: { name: {{ .Values.tracing.existingSecret }}, key: public_key }
-            - name: LANGFUSE_SECRET_KEY
+            - name: HERMES_LANGFUSE_SECRET_KEY
               valueFrom:
                 secretKeyRef: { name: {{ .Values.tracing.existingSecret }}, key: secret_key }
             {{- end }}

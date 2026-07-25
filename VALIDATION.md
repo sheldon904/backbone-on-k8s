@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. **29 rows verified locally, 8 in CI, 18 requiring a cluster.**
+Last updated: 2026-07-25. **33 rows verified locally, 8 in CI, 17 requiring a cluster.**
 
 ---
 
@@ -50,6 +50,10 @@ Each row names the command and the observed result.
 | L27 | Grafana dashboard is valid JSON, every panel has a query | `json.load` + panel walk | 14 panels / 5 rows, 0 panels without a query |
 | L28 | No "recall latency" anywhere | regex over the dashboard JSON | appears only in the description explaining its deliberate absence; **0 queries reference it** |
 | L29 | Full static suite passes end to end | `./scripts/validate.sh` | `ALL STATIC CHECKS PASSED`, exit 0 |
+| L30 | hermes-agent supports an **HTTP MCP transport natively** — no shim needed | read `tools/mcp_tool.py` in the running checkout | accepts `url`, `transport`, `headers`, `type` alongside stdio `command`/`args`; imports `streamablehttp_client` and `sse_client` |
+| L31 | The bundled Langfuse plugin wants `HERMES_LANGFUSE_*`, not bare `LANGFUSE_HOST` | read `plugins/observability/langfuse/` + `hermes_cli/config.py` | plugin exists; env names are `HERMES_LANGFUSE_{BASE_URL,PUBLIC_KEY,SECRET_KEY,SAMPLE_RATE}`. **The chart was injecting names the plugin ignores** — fixed |
+| L32 | hermes-agent exposes **no** Prometheus endpoint | `grep -rniE 'prometheus\|/metrics' --include='*.py'` | no match — confirms the largest observability gap is real |
+| L33 | Recall latency **is** a metric of this system, not another project | `memory_store.db` | `recall_log` table, **2725 rows**, live; `plugins.hybrid.recall_log_enabled: true` |
 
 ## 2. Verified in CI
 
@@ -84,11 +88,10 @@ These are unproven. No document in this repo may state them as fact.
 | C7 | Grafana panels move when the system is used | live cluster + a real workload |
 | C8 | Daily workflows run on the cluster for 7 consecutive days | Phase 6, the actual point of the project |
 | C9 | `docs/OPERATIONS.md` contains real incidents | can only be earned by operating it |
-| C10 | hermes-agent v0.18.0 can consume an **HTTP** MCP endpoint (vs. needing a stdio→HTTP shim) | a config experiment against a gateway; not attempted, and out of scope for read-only work on the live host |
 | C11 | `readOnlyRootFilesystem: true` holds for the gateway | only discoverable by running it — it may write outside `~/.hermes` and `~/.cache`. The image now builds (CI8), so this is testable as soon as there is a cluster |
 | C12 | The Compose stack comes up and `healthcheck.sh` goes fully green | same blocker as C1 |
 | C14 | `config.yaml` is assembled at startup from ConfigMap + Secret | **not implemented.** hermes-agent reads one config.yaml; an init container or startup wrapper has to compose it. A real gap, not a detail — docs/04-SECRETS.md §3 |
-| C15 | hermes-agent v0.18.0 actually consumes `LANGFUSE_*` env vars | unconfirmed. The variables are injected because that is the conventional integration; if upstream ignores them, tracing needs a wrapper and the env vars are inert |
+| C15 | Langfuse actually receives a trace | the plugin and the env names are now confirmed (L31); whether traces arrive needs a running gateway plus a Langfuse instance |
 | C16 | NetworkPolicy is **enforced** | k3s ships flannel, which does not enforce NetworkPolicy at all. Needs `--flannel-backend=none --disable-network-policy` plus Calico or Cilium. Until then the policies are accepted by the API server and enforced by nothing |
 | C17 | Sealed-secrets key rotation | the controller supports it; nothing in this repo drives it |
 | C18 | etcd encryption at rest | off by default on k3s; `--secrets-encryption` is a bootstrap flag, out of scope for the chart |

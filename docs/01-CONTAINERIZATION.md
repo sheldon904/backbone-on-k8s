@@ -38,13 +38,19 @@ function call inside one process and no network policy can ever express it. Opti
 invisible trust relationship into one that is declared in YAML and enforced by the CNI. That is
 the entire point of the exercise.
 
-**The cost is real and is not hidden.** The gateway is upstream software
-(NousResearch/hermes-agent v0.18.0) that expects to fork stdio MCP servers. Pointing it at an
-HTTP MCP endpoint requires either upstream support for HTTP MCP transports in its
-`mcp_servers` config, or a thin stdio→HTTP shim forked by the gateway. **Which of these
-applies has not been verified** — see [`VALIDATION.md`](../VALIDATION.md) row C10. If upstream
-turns out not to support it, the shim is ~40 lines and the network hop and its policy still
-exist, so the Phase 4 property survives either way.
+**RESOLVED 2026-07-25 — upstream supports it natively, no shim needed.** `tools/mcp_tool.py`
+documents both transports and accepts `url`, `transport`, `headers` and `type` alongside the
+stdio `command`/`args`/`env`:
+
+```
+tools/mcp_tool.py:55:  - Stdio transport (command + args) and HTTP/StreamableHTTP transport (url)
+tools/mcp_tool.py:56:  - SSE transport (transport: sse) for MCP servers using the SSE protocol
+tools/mcp_tool.py:205: from mcp.client.streamable_http import streamablehttp_client
+```
+
+So the `mcp_servers.backbone` entry becomes a `url:` pointing at the Service, and the whole
+stdio→HTTP decision costs nothing beyond the port itself. [`VALIDATION.md`](../VALIDATION.md)
+row C10 moves to verified locally as L30.
 
 ## 2. What changed and why
 
