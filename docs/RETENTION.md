@@ -104,11 +104,17 @@ tracked as S2 in [`02-STATE-TRADEOFFS.md`](./02-STATE-TRADEOFFS.md) and it is **
 |---|---|
 | Who can read the audit stream | anyone with `kubectl exec` into the gateway pod, or the volume |
 | Restricted by | RBAC on the namespace. **Not configured in this repo** — single-user cluster |
-| Is it tamper-evident | **No.** The removed governance package implemented a hash-chained audit log with a `chain_valid` check. Nothing in the live path does. A plain log file can be edited by anything that can write the volume |
+| Is it tamper-evident | **No**, and nothing in this repo's lineage makes it so. See the correction below |
 
-That last row is the real cost of the 2026-05-24 teardown. The tamper-evidence property was
-built and tested — 57 passing tests in `packages/governance`, including hash-chain
-verification — and then taken out of the request path. Reinstating it would mean routing tool
+**Correction (2026-07-25).** An earlier version of this file said the removed governance
+package implemented a hash-chained audit log with a `chain_valid` check. **That was wrong, and
+it was wrong in the specific way this repo is supposed to avoid: I conflated it with
+`agent-fleet-on-eks`.** The hash chain is in *that* repo's Python `governance-mcp`. Backbone's
+TypeScript `packages/governance` has one-shot action-token *hashes* (`actionTokenHash`) but no
+audit hash *chain* — `audit-log.ts` appends plain JSONL lines with no linkage between them.
+
+So the real cost of the 2026-05-24 teardown is narrower than stated: what was lost is the
+append-only audit stream itself, not tamper-evidence, which never existed here. Reinstating it would mean routing tool
 calls back through the gate, which is a product decision about the whole system, not a
 Kubernetes one.
 
