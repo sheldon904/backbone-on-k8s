@@ -1,0 +1,201 @@
+# Keycloak + its Postgres, in their own namespace.
+#
+# Separate from `backbone` on purpose: the identity provider is cluster
+# infrastructure, not part of the application chart. If Backbone is uninstalled
+# the realm should survive, and a compromise of the app namespace should not
+# reach the IdP's database.
+#
+# Why Keycloak and not Cognito: this is self-managed k3s with no cloud identity
+# provider attached. Using Cognito would couple a cluster with no other AWS
+# dependency to an AWS account. docs/04-SSO.md §2.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: identity
+  labels:
+    app.kubernetes.io/part-of: backbone-platform
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-postgres
+  namespace: identity
+spec:
+  clusterIP: None          # headless, for the StatefulSet
+  selector:
+    app.kubernetes.io/name: keycloak-postgres
+  ports:
+    - port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: keycloak-postgres
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: keycloak-postgres
+spec:
+  serviceName: keycloak-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak-postgres
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: docker.io/library/postgres:16-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: keycloak
+            - name: POSTGRES_USER
+              value: keycloak
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: keycloak-secrets, key: db-password }
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          securityContext:
+            allowPrivilegeEscalation: false
+            # NOT read-only: postgres writes its socket and lock files under
+            # /var/run/postgresql and /tmp. Mounting those as emptyDir would let
+            # this be true; not done because this is throwaway infrastructure and
+            # the exception should be visible rather than quietly worked around.
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "keycloak", "-d", "keycloak"]
+            periodSeconds: 5
+            failureThreshold: 12
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.0
+          # start-dev, NOT start.
+          #
+          # Stated plainly because it matters: dev mode disables the hostname
+          # strictness and HTTPS requirement that production Keycloak enforces.
+          # The OIDC protocol flow it serves is identical -- the same authorization
+          # code exchange, the same JWKS verification -- but this is not a
+          # production identity provider and this repo does not claim it is.
+          # A production deployment uses `start --optimized` behind real TLS.
+          args: ["start-dev", "--http-enabled=true", "--proxy-headers=xforwarded"]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: admin
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: keycloak-secrets, key: admin-password }
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: jdbc:postgresql://keycloak-postgres.identity.svc.cluster.local:5432/keycloak
+            - name: KC_DB_USERNAME
+              value: keycloak
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: keycloak-secrets, key: db-password }
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            # Keep the JVM inside the memory limit. Without this the JVM sizes
+            # its heap from the NODE's memory, not the cgroup limit, and gets
+            # OOMKilled on a small node.
+            - name: JAVA_OPTS_APPEND
+              value: "-XX:MaxRAMPercentage=70"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false   # Keycloak writes to /opt/keycloak/data
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { memory: 1Gi }
+          startupProbe:
+            httpGet: { path: /health/ready, port: 9000 }
+            periodSeconds: 5
+            failureThreshold: 60      # JVM + schema migration on first start
+          livenessProbe:
+            httpGet: { path: /health/live, port: 9000 }
+            periodSeconds: 20
+            failureThreshold: 3
