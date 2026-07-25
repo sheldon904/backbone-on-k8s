@@ -1,0 +1,309 @@
+{{- if .Values.gateway.enabled }}
+{{- $name := printf "%s-gateway" (include "backbone.fullname" .) }}
+{{- $ns := include "backbone.namespace" . }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: hermes-gateway
+automountServiceAccountToken: false
+{{- if and .Values.gateway.persistence.enabled (not .Values.gateway.persistence.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-state
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: hermes-gateway
+  annotations:
+    # Keep the state volume when the release is uninstalled. Everything the
+    # agent has ever learned lives here; `helm uninstall` should not be able to
+    # delete it by accident.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [{{ .Values.gateway.persistence.accessMode }}]
+  resources:
+    requests:
+      storage: {{ .Values.gateway.persistence.size }}
+  {{- with .Values.gateway.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: hermes-gateway
+    app.kubernetes.io/component: agent-runtime
+spec:
+  # Hard-coded 1. There is no gateway.replicas value, by design -- see the note
+  # in values.yaml. Sole SQLite writer + in-process cron scheduler.
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+    # Recreate. RollingUpdate would co-schedule a second writer on the same RWO
+    # volume; on single-node k3s that succeeds and corrupts the WAL.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "backbone.labels" . | nindent 8 }}
+        app.kubernetes.io/name: hermes-gateway
+        {{- with .Values.podLabels }}{{ toYaml . | nindent 8 }}{{- end }}
+      annotations:
+        # Roll the pod when non-secret config changes. Not applied to the
+        # Secret: that would put a hash of secret material into an annotation
+        # readable by anyone with pod-get.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}{{ toYaml . | nindent 8 }}{{- end }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "backbone.podSecurityContext" .Values.gateway.securityContext | nindent 8 }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: gateway
+          image: {{ include "backbone.image" (list . .Values.gateway.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "hermes_cli.main", "gateway", "run"]
+          ports:
+            - name: webhook
+              containerPort: {{ .Values.gateway.webhookPort }}
+              protocol: TCP
+          env:
+            - name: HERMES_HOME
+              value: /home/hermes/.hermes
+            - name: WEBHOOK_ENABLED
+              value: "true"
+            - name: WEBHOOK_HOST
+              value: "0.0.0.0"
+            - name: WEBHOOK_PORT
+              value: {{ .Values.gateway.webhookPort | quote }}
+            {{- if .Values.tracing.enabled }}
+            - name: LANGFUSE_HOST
+              value: {{ .Values.tracing.host | quote }}
+            - name: LANGFUSE_SAMPLE_RATE
+              value: {{ .Values.tracing.sampleRate | quote }}
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.tracing.existingSecret }}, key: public_key }
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.tracing.existingSecret }}, key: secret_key }
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "backbone.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.secrets.existingSecret }}
+          securityContext:
+            {{- include "backbone.containerSecurityContext" (dict "readOnlyRootFilesystem" .Values.gateway.securityContext.readOnlyRootFilesystem) | nindent 12 }}
+          volumeMounts:
+            - name: state
+              mountPath: /home/hermes/.hermes
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/hermes/.cache
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
+          startupProbe:
+            tcpSocket: { port: webhook }
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            # tcpSocket: hermes-agent exposes no health endpoint on the webhook
+            # listener. Weak by admission -- a deadlocked process holding an
+            # open socket passes. Tracked as Q4 in docs/01-CONTAINERIZATION.md.
+            tcpSocket: { port: webhook }
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+        {{- if .Values.gateway.dashboard.enabled }}
+        - name: dashboard
+          image: {{ include "backbone.image" (list . .Values.gateway.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Binds pod-loopback so nothing outside this pod can reach it. When
+          # sso.enabled, the oauth2-proxy sidecar below is the only way in.
+          command:
+            - hermes
+            - dashboard
+            - --no-open
+            - --host
+            - "127.0.0.1"
+            - --port
+            - {{ .Values.gateway.dashboard.port | quote }}
+            - --skip-build
+          env:
+            - name: HERMES_HOME
+              value: /home/hermes/.hermes
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secrets.existingSecret }}
+          securityContext:
+            {{- include "backbone.containerSecurityContext" (dict "readOnlyRootFilesystem" .Values.gateway.securityContext.readOnlyRootFilesystem) | nindent 12 }}
+          volumeMounts:
+            - name: state
+              mountPath: /home/hermes/.hermes
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/hermes/.cache
+          resources:
+            {{- toYaml .Values.gateway.dashboard.resources | nindent 12 }}
+          livenessProbe:
+            # exec, not httpGet. httpGet's `host` is dialled by the kubelet from
+            # the NODE, so 127.0.0.1 there means the node's loopback, not the
+            # container's.
+            exec:
+              command:
+                - python
+                - -c
+                - |
+                  import sys, urllib.request
+                  try:
+                      urllib.request.urlopen("http://127.0.0.1:{{ .Values.gateway.dashboard.port }}/", timeout=4)
+                  except Exception as e:
+                      sys.exit(f"dashboard probe failed: {e}")
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 6
+            failureThreshold: 3
+        {{- end }}
+        {{- if .Values.sso.enabled }}
+        - name: oauth2-proxy
+          # In the same pod, not a separate Deployment. The dashboard is on
+          # pod-loopback, so this sidecar is structurally the only path to it --
+          # the isolation does not depend on a NetworkPolicy being correct.
+          image: {{ .Values.sso.image }}
+          args:
+            - --provider=oidc
+            - --oidc-issuer-url={{ .Values.sso.issuerUrl }}
+            - --client-id={{ .Values.sso.clientId }}
+            - --http-address=0.0.0.0:{{ .Values.sso.port }}
+            - --upstream=http://127.0.0.1:{{ .Values.gateway.dashboard.port }}
+            - --cookie-secure=true
+            - --cookie-httponly=true
+            - --cookie-samesite=lax
+            - --cookie-expire=8h
+            - --set-xauthrequest=true
+            - --skip-provider-button=true
+            - --pass-access-token=false
+            - --pass-authorization-header=false
+            {{- if .Values.sso.emailDomains }}
+            {{- range .Values.sso.emailDomains }}
+            - --email-domain={{ . }}
+            {{- end }}
+            {{- else }}
+            # No email-domain restriction means any account the IdP will
+            # authenticate gets in. Acceptable only because the Keycloak realm
+            # itself has exactly one user -- see docs/04-SSO.md §5.
+            - --email-domain=*
+            {{- end }}
+            {{- range .Values.sso.allowedGroups }}
+            - --allowed-group={{ . }}
+            {{- end }}
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.sso.existingSecret }}, key: client-secret }
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.sso.existingSecret }}, key: cookie-secret }
+          ports:
+            - name: oauth
+              containerPort: {{ .Values.sso.port }}
+          securityContext:
+            {{- include "backbone.containerSecurityContext" dict | nindent 12 }}
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          livenessProbe:
+            httpGet: { path: /ping, port: oauth }
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /ready, port: oauth }
+            periodSeconds: 10
+        {{- end }}
+      volumes:
+        - name: state
+          {{- if .Values.gateway.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-state" $name) .Values.gateway.persistence.existingClaim }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+        - name: cache
+          emptyDir:
+            sizeLimit: 1Gi
+      terminationGracePeriodSeconds: {{ .Values.gateway.terminationGracePeriodSeconds }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: hermes-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: hermes-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: webhook
+      port: {{ .Values.gateway.webhookPort }}
+      targetPort: webhook
+      protocol: TCP
+{{- if .Values.sso.enabled }}
+---
+# Only exists when SSO is on. Without oauth2-proxy there is nothing in the pod
+# listening on a routable address for the dashboard, which is the point.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-dashboard
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: hermes-gateway
+    app.kubernetes.io/component: dashboard
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: hermes-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: oauth
+      protocol: TCP
+{{- end }}
+{{- end }}

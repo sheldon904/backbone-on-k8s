@@ -1,0 +1,172 @@
+{{- if .Values.notifyMcp.enabled }}
+{{- $name := printf "%s-notify-mcp" (include "backbone.fullname" .) }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "backbone.namespace" . }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: notify-mcp
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "backbone.namespace" . }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: notify-mcp
+    app.kubernetes.io/component: mcp-tool-server
+spec:
+  replicas: {{ .Values.notifyMcp.replicas }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "backbone.labels" . | nindent 8 }}
+        app.kubernetes.io/name: notify-mcp
+        {{- with .Values.podLabels }}{{ toYaml . | nindent 8 }}{{- end }}
+      annotations:
+        {{- if .Values.monitoring.scrapeAnnotations }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.notifyMcp.port | quote }}
+        prometheus.io/path: "/metrics"
+        {{- end }}
+        {{- with .Values.podAnnotations }}{{ toYaml . | nindent 8 }}{{- end }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "backbone.podSecurityContext" .Values.notifyMcp.securityContext | nindent 8 }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.notifyMcp.topologySpread.enabled }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: {{ .Values.notifyMcp.topologySpread.whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: notify-mcp
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- end }}
+      containers:
+        - name: notify-mcp
+          image: {{ include "backbone.image" (list . .Values.notifyMcp.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.notifyMcp.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ .Values.notifyMcp.port | quote }}
+            - name: BACKBONE_NTFY_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "backbone.fullname" . }}-config
+                  key: ntfy_base_url
+            - name: BACKBONE_NTFY_SHORTCUT_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "backbone.fullname" . }}-config
+                  key: ntfy_shortcut_name
+            {{- range $k, $v := dict "BACKBONE_NTFY_TOPIC" "ntfy_topic" "TELEGRAM_BOT_TOKEN" "telegram_bot_token" "TELEGRAM_HOME_CHANNEL" "telegram_home_channel" }}
+            - name: {{ $k }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.secrets.existingSecret }}
+                  key: {{ $v }}
+            {{- end }}
+          securityContext:
+            {{- include "backbone.containerSecurityContext" dict | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.notifyMcp.resources | nindent 12 }}
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 1
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            # /readyz, not /healthz: 503 when no delivery channel is configured,
+            # so a misconfigured pod leaves the Service instead of answering 200
+            # with {"ok":false}.
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              # `sleep`, not `exec: [sleep, 5]` -- the image is distroless and
+              # has no sleep binary. Lets the Endpoints controller deregister
+              # this pod before it stops accepting.
+              sleep:
+                seconds: 5
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "backbone.namespace" . }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: notify-mcp
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: notify-mcp
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+{{- if .Values.notifyMcp.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "backbone.namespace" . }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.notifyMcp.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+{{- end }}

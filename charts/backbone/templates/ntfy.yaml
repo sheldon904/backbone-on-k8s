@@ -1,0 +1,142 @@
+{{- if .Values.ntfy.enabled }}
+{{- $name := printf "%s-ntfy" (include "backbone.fullname" .) }}
+{{- $ns := include "backbone.namespace" . }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: ntfy
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-config
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+data:
+  server.yml: |
+    listen-http: ":{{ .Values.ntfy.port }}"
+    cache-file: "/var/cache/ntfy/cache.db"
+    cache-duration: "12h"
+    attachment-cache-dir: "/var/cache/ntfy/attachments"
+    attachment-total-size-limit: "1G"
+    attachment-expiry-duration: "3h"
+    behind-proxy: true
+    auth-file: "/var/cache/ntfy/auth.db"
+    # An unauthenticated ntfy lets anything that can reach it publish to any
+    # topic; the topic name would be the only secret.
+    auth-default-access: "deny-all"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: ntfy
+    app.kubernetes.io/component: notification-bridge
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ntfy
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "backbone.labels" . | nindent 8 }}
+        app.kubernetes.io/name: ntfy
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "backbone.podSecurityContext" .Values.ntfy.securityContext | nindent 8 }}
+      containers:
+        - name: ntfy
+          image: "{{ .Values.ntfy.image.registry }}/{{ .Values.ntfy.image.repository }}/{{ .Values.ntfy.image.name }}:{{ .Values.ntfy.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["serve", "--config", "/etc/ntfy/server.yml"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.ntfy.port }}
+              protocol: TCP
+          env:
+            - name: NTFY_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "backbone.fullname" . }}-config
+                  key: ntfy_base_url
+            - name: NTFY_UPSTREAM_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret }}
+                  key: ntfy_upstream_token
+                  optional: true
+          securityContext:
+            # Drops ALL where the host systemd unit grants
+            # AmbientCapabilities=CAP_NET_BIND_SERVICE. A container has its own
+            # network namespace, so binding a low port needs no privilege --
+            # one of the few places the container is stricter than the host.
+            {{- include "backbone.containerSecurityContext" dict | nindent 12 }}
+          volumeMounts:
+            - name: cache
+              mountPath: /var/cache/ntfy
+            - name: config
+              mountPath: /etc/ntfy
+              readOnly: true
+          resources:
+            {{- toYaml .Values.ntfy.resources | nindent 12 }}
+          livenessProbe:
+            httpGet: { path: /v1/health, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /v1/health, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $name }}-config
+      terminationGracePeriodSeconds: 30
+  volumeClaimTemplates:
+    - metadata:
+        name: cache
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.ntfy.persistence.size }}
+        {{- with .Values.ntfy.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    app.kubernetes.io/name: ntfy
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ntfy
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+{{- end }}

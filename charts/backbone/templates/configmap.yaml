@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backbone.fullname" . }}-config
+  namespace: {{ include "backbone.namespace" . }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+data:
+  # Non-secret only. ~/.hermes/config.yaml on the host embeds VAPI_TOKEN and the
+  # webhook secret as literal values, so that file cannot become a ConfigMap --
+  # docs/04-SECRETS.md §3.
+  ntfy_base_url: "http://{{ include "backbone.fullname" . }}-ntfy.{{ include "backbone.namespace" . }}.svc.cluster.local"
+  ntfy_shortcut_name: {{ .Values.config.ntfyShortcutName | quote }}
+
+  # The gateway reaches the notify MCP over the network instead of forking it.
+  # This hop is what the Phase 4 NetworkPolicy can allow explicitly.
+  notify_mcp_url: "http://{{ include "backbone.fullname" . }}-notify-mcp.{{ include "backbone.namespace" . }}.svc.cluster.local/mcp"
+
+  hermes_model_default: {{ .Values.config.model.default | quote }}
+  hermes_model_provider: {{ .Values.config.model.provider | quote }}
+  hermes_model_base_url: {{ .Values.config.model.baseUrl | quote }}
+
+  hermes_agent_max_turns: {{ .Values.config.agent.maxTurns | quote }}
+  hermes_agent_gateway_timeout: {{ .Values.config.agent.gatewayTimeout | quote }}
+  hermes_agent_restart_drain_timeout: {{ .Values.config.agent.restartDrainTimeout | quote }}
+
+  TZ: {{ .Values.config.timezone | quote }}
