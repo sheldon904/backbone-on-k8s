@@ -247,6 +247,15 @@ sso:
   # registered redirect URI unless you guessed the host correctly. Set it and
   # register the same string in Keycloak.
   redirectUrl: ""
+  # Secure flag on the session and CSRF cookies. KEEP TRUE IN PRODUCTION.
+  #
+  # With it true the browser will not send those cookies over plain http, so an
+  # http-only deployment fails the callback with
+  #   "CSRF cookie with name '_oauth2_proxy_csrf' was not found"  -> 403
+  # That is the control working, not a bug. It is exposed as a value only so an
+  # in-cluster verification can exercise the flow without terminating TLS, and
+  # flipping it is a recorded decision rather than a convenience.
+  cookieSecure: true
   emailDomains: []
   allowedGroups: []
 

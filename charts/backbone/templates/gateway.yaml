@@ -232,7 +232,7 @@ spec:
             - --redirect-url={{ . }}
             {{- end }}
             - --upstream=http://127.0.0.1:{{ .Values.gateway.dashboard.port }}
-            - --cookie-secure=true
+            - --cookie-secure={{ .Values.sso.cookieSecure }}
             - --cookie-httponly=true
             - --cookie-samesite=lax
             - --cookie-expire=8h
