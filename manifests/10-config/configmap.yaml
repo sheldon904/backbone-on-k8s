@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backbone-config
+  namespace: backbone
+  labels:
+    app.kubernetes.io/part-of: backbone
+data:
+  # Non-secret configuration only.
+  #
+  # Phase 0 found that ~/.hermes/config.yaml is NOT purely configuration -- it
+  # carries mcp_servers.vapi.env.VAPI_TOKEN and platforms.webhook.extra.secret
+  # as literal values. That file therefore cannot become a ConfigMap. The split
+  # is: structural settings here, credentials in backbone-secrets, and the
+  # config.yaml assembled at startup. docs/04-SECRETS.md §3.
+
+  ntfy_base_url: "http://ntfy.backbone.svc.cluster.local"
+  ntfy_shortcut_name: "Backbone Notify Bridge"
+
+  # The gateway reaches the notify MCP over the network now, not by forking it.
+  # This is the address that Phase 4's NetworkPolicy explicitly allows -- the
+  # whole reason for the stdio->HTTP port. docs/01-CONTAINERIZATION.md §1.
+  notify_mcp_url: "http://notify-mcp.backbone.svc.cluster.local/mcp"
+
+  # Model routing. Observed on the live host: qwen/qwen3-235b-a22b-2507 via
+  # OpenRouter, chat_completions mode.
+  hermes_model_default: "qwen/qwen3-235b-a22b-2507"
+  hermes_model_provider: "openrouter"
+  hermes_model_base_url: "https://openrouter.ai/api/v1"
+
+  # Agent limits, matching the live config.yaml.
+  hermes_agent_max_turns: "60"
+  hermes_agent_gateway_timeout: "1800"
+  # 180s drain is why terminationGracePeriodSeconds is 240 on the gateway pod.
+  hermes_agent_restart_drain_timeout: "180"
+
+  TZ: "America/New_York"

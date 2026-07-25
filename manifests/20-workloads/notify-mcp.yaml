@@ -1,0 +1,196 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: notify-mcp
+  namespace: backbone
+  labels:
+    app.kubernetes.io/name: notify-mcp
+    app.kubernetes.io/part-of: backbone
+# This workload makes no calls to the Kubernetes API. Mounting a token would
+# hand a credential to a process that has no use for it.
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notify-mcp
+  namespace: backbone
+  labels:
+    app.kubernetes.io/name: notify-mcp
+    app.kubernetes.io/part-of: backbone
+    app.kubernetes.io/component: mcp-tool-server
+spec:
+  # Stateless by construction: a fresh MCP Server and transport are built per
+  # request (see docs/OPERATIONS.md 2026-07-25). No session state means no
+  # affinity requirement, so this can scale where the gateway cannot.
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notify-mcp
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: notify-mcp
+        app.kubernetes.io/part-of: backbone
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: notify-mcp
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532        # distroless `nonroot`
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      # Spread replicas across nodes so a single node loss does not take the
+      # tool offline. ScheduleAnyway, not DoNotSchedule: on a one-node cluster
+      # DoNotSchedule would leave the second replica Pending forever.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: notify-mcp
+      containers:
+        - name: notify-mcp
+          image: ghcr.io/sheldon904/backbone-notify-mcp:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            - name: BACKBONE_NTFY_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backbone-config
+                  key: ntfy_base_url
+            - name: BACKBONE_NTFY_SHORTCUT_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: backbone-config
+                  key: ntfy_shortcut_name
+            # Secrets by reference only. Phase 4 replaces the Secret object with
+            # a SealedSecret; this block does not change.
+            - name: BACKBONE_NTFY_TOPIC
+              valueFrom:
+                secretKeyRef:
+                  name: backbone-secrets
+                  key: ntfy_topic
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: backbone-secrets
+                  key: telegram_bot_token
+            - name: TELEGRAM_HOME_CHANNEL
+              valueFrom:
+                secretKeyRef:
+                  name: backbone-secrets
+                  key: telegram_home_channel
+          # Maps hermes.service's NoNewPrivileges, ProtectSystem=strict and the
+          # capability-dropping directives. See docs/01-CONTAINERIZATION.md §3
+          # for the three that do not carry over.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # PrivateTmp=true. The image is distroless with a read-only root, so
+            # this is the only writable path in the container.
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              # Observed RSS of the stdio original was 65 MB (Phase 0 §3). 192Mi
+              # leaves headroom for Node's heap to grow under load without
+              # inviting a runaway. No CPU limit on purpose: CPU is compressible,
+              # and a limit here buys throttling, not safety.
+              memory: 192Mi
+          startupProbe:
+            # Guards the liveness probe during boot. Node + the SDK start in well
+            # under a second, but a slow node makes that a lie; 30 x 1s is cheap.
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 1
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            # Deliberately a different endpoint from liveness. /readyz returns
+            # 503 when no delivery channel is configured, so a misconfigured pod
+            # is pulled from the Service instead of returning a hundred 200s
+            # containing {"ok":false}. docs/01-CONTAINERIZATION.md §2.
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              # Give the Endpoints controller time to remove this pod before the
+              # process stops accepting. Without it, kube-proxy can still be
+              # routing to a socket that has already closed.
+              sleep:
+                seconds: 5
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notify-mcp
+  namespace: backbone
+  labels:
+    app.kubernetes.io/name: notify-mcp
+    app.kubernetes.io/part-of: backbone
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: notify-mcp
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notify-mcp
+  namespace: backbone
+spec:
+  # With replicas 2, this keeps a node drain from taking the tool fully offline.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notify-mcp

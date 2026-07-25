@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backbone
+  labels:
+    app.kubernetes.io/part-of: backbone
+    # Pod Security Admission. `restricted` is the strictest of the three built-in
+    # levels: it requires runAsNonRoot, drop ALL capabilities,
+    # allowPrivilegeEscalation false, and a seccomp profile.
+    #
+    # enforce is set deliberately, not warn-only. Every workload in this repo was
+    # written to satisfy it -- see docs/01-CONTAINERIZATION.md §3. If a future
+    # workload cannot, the correct response is to argue for it in a PR, not to
+    # quietly downgrade the namespace.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

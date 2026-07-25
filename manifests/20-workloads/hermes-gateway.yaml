@@ -1,0 +1,279 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hermes-gateway
+  namespace: backbone
+  labels:
+    app.kubernetes.io/name: hermes-gateway
+    app.kubernetes.io/part-of: backbone
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-state
+  namespace: backbone
+  labels:
+    app.kubernetes.io/name: hermes-gateway
+    app.kubernetes.io/part-of: backbone
+spec:
+  accessModes:
+    # ReadWriteOnce, and the gateway is the only writer. Note this means one
+    # NODE, not one pod -- two pods co-scheduled on the same node can both mount
+    # it. That is why the Deployment strategy below is Recreate and not a
+    # default. docs/02-STATE-TRADEOFFS.md §3.
+    - ReadWriteOnce
+  resources:
+    requests:
+      # ~690 MB of real state today excluding backups, against 9.4 GB of
+      # ~/.hermes -- 8 GB of which is the checkout and venv, which now live in
+      # the image rather than on the volume. 20Gi is ~25x headroom.
+      # local-path does not support online expansion, so under-provisioning
+      # means a migration. Sizing rationale: docs/02-STATE-TRADEOFFS.md §6.
+      storage: 20Gi
+  # Left unset so the cluster default applies (local-path on k3s). Pinning a
+  # class here would make the manifests non-portable for no gain.
+  # storageClassName: local-path
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-gateway
+  namespace: backbone
+  labels:
+    app.kubernetes.io/name: hermes-gateway
+    app.kubernetes.io/part-of: backbone
+    app.kubernetes.io/component: agent-runtime
+spec:
+  # PERMANENTLY 1. Not "1 for now".
+  #
+  # The gateway is the sole writer to five SQLite databases and hosts the cron
+  # scheduler in-process. A second replica means two writers to one file and two
+  # schedulers firing the same jobs. Raising this is a data-loss bug, not a
+  # scaling decision. docs/02-STATE-TRADEOFFS.md §3.
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hermes-gateway
+  strategy:
+    # Recreate, explicitly. RollingUpdate would try to start the new pod while
+    # the old one still holds the volume. On a multi-node cluster that hangs on
+    # Multi-Attach; on single-node k3s both pods CAN mount it, and two processes
+    # writing one WAL-mode SQLite file is how the database gets corrupted.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hermes-gateway
+        app.kubernetes.io/part-of: backbone
+    spec:
+      serviceAccountName: hermes-gateway
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        # The PVC must be group-writable by the container user. Without fsGroup
+        # the volume is root-owned and a non-root process cannot write it --
+        # the classic "works as root, CrashLoopBackOff as nonroot" failure.
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        # --- the agent runtime -------------------------------------------------
+        - name: gateway
+          image: ghcr.io/sheldon904/backbone-hermes-gateway:0.18.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "hermes_cli.main", "gateway", "run"]
+          ports:
+            - name: webhook
+              containerPort: 8645
+              protocol: TCP
+          env:
+            - name: HERMES_HOME
+              value: /home/hermes/.hermes
+            - name: WEBHOOK_ENABLED
+              value: "true"
+            - name: WEBHOOK_HOST
+              value: "0.0.0.0"
+            - name: WEBHOOK_PORT
+              value: "8645"
+          envFrom:
+            - configMapRef:
+                name: backbone-config
+            # Every secret arrives by reference. Phase 4 swaps the Secret for a
+            # SealedSecret and this line is unchanged.
+            - secretRef:
+                name: backbone-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            # UNVERIFIED that this holds. The gateway may write outside
+            # ~/.hermes and ~/.cache -- only running it will tell.
+            # VALIDATION.md row C11. If it CrashLoops on a read-only FS, the fix
+            # is another emptyDir mount, not flipping this to false.
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: state
+              mountPath: /home/hermes/.hermes
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/hermes/.cache
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              # Observed 167 MB RSS for the gateway plus ~230 MB across its
+              # forked children on the host (Phase 0 §3). The children now live
+              # in their own pods, so this covers the Python process alone with
+              # room for the LLM client's buffers.
+              #
+              # The host unit that WOULD have set MemoryMax=1G was never
+              # installed, and the droplet needed a 2 GB swapfile in May 2026
+              # because OOM was freezing it. A limit here is what that swapfile
+              # was compensating for.
+              memory: 1Gi
+          startupProbe:
+            # The gateway loads a memory store, opens five SQLite files and
+            # connects to messaging platforms before it serves. 5 minutes of
+            # grace (60 x 5s) so a slow start is not a restart loop.
+            tcpSocket:
+              port: webhook
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            # tcpSocket, not httpGet: hermes-agent exposes no health endpoint on
+            # the webhook listener, and an unauthenticated GET would be answered
+            # with an error that says nothing about health. Weak, and labelled
+            # as weak -- a deadlocked gateway holding an open socket passes this.
+            # Q4 in docs/01-CONTAINERIZATION.md tracks doing better.
+            tcpSocket:
+              port: webhook
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+        # --- the read-only UI, co-located because it reads the same files ------
+        - name: dashboard
+          # Same image, different entrypoint. The dashboard is part of
+          # hermes-agent, not a separate program.
+          image: ghcr.io/sheldon904/backbone-hermes-gateway:0.18.0
+          imagePullPolicy: IfNotPresent
+          # It reads the gateway's SQLite files directly. A separate Deployment
+          # would need ReadWriteMany, which k3s's local-path provisioner does
+          # not offer. Cost of co-locating: restarting the gateway restarts the
+          # dashboard. docs/02-STATE-TRADEOFFS.md §5.
+          command:
+            - hermes
+            - dashboard
+            - --no-open
+            - --host
+            - "127.0.0.1"     # loopback only; oauth2-proxy fronts it in Phase 4
+            - --port
+            - "9119"
+            - --skip-build
+          env:
+            - name: HERMES_HOME
+              value: /home/hermes/.hermes
+          envFrom:
+            - secretRef:
+                name: backbone-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: state
+              mountPath: /home/hermes/.hermes
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/hermes/.cache
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 384Mi
+          livenessProbe:
+            # exec, NOT httpGet. httpGet's `host` field defaults to the POD IP
+            # and, when set, is dialled by the kubelet from the NODE -- so
+            # `host: 127.0.0.1` would probe the node's loopback, not the
+            # container's, and could silently succeed against something else
+            # entirely. Same class of false positive as the healthcheck incident
+            # in docs/OPERATIONS.md. An exec probe runs inside the container's
+            # network namespace, where 127.0.0.1 means what it says.
+            exec:
+              command:
+                - python
+                - -c
+                - |
+                  import sys, urllib.request
+                  try:
+                      urllib.request.urlopen("http://127.0.0.1:9119/", timeout=4)
+                  except Exception as e:
+                      sys.exit(f"dashboard probe failed: {e}")
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 6
+            failureThreshold: 3
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: hermes-state
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+        - name: cache
+          emptyDir:
+            sizeLimit: 1Gi
+      # The host unit sets TimeoutStopSec=210 because the gateway drains
+      # in-flight conversations for up to 180s (agent.restart_drain_timeout) plus
+      # a 30s grace. Kubernetes' 30s default would SIGKILL mid-conversation on
+      # every rollout. 240 matches the intent of the repo's hardened unit.
+      terminationGracePeriodSeconds: 240
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-gateway
+  namespace: backbone
+  labels:
+    app.kubernetes.io/name: hermes-gateway
+    app.kubernetes.io/part-of: backbone
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: hermes-gateway
+  ports:
+    - name: webhook
+      port: 8645
+      targetPort: webhook
+      protocol: TCP
+# There is deliberately NO Service for the dashboard in Phase 2.
+#
+# The dashboard binds 127.0.0.1 inside the pod. A Service routes to the pod IP,
+# so a Service pointing at port 9119 would never connect -- and "fix" it by
+# binding 0.0.0.0 and the UI becomes reachable by anything that can reach the
+# pod, with no authentication in front of it (Phase 0 found dashboard.oauth and
+# dashboard.basic_auth both empty).
+#
+# Keeping it on loopback means the network namespace itself enforces that the
+# only way in is a process inside this pod. In Phase 4 that process is an
+# oauth2-proxy sidecar, and the Service points at oauth2-proxy's port instead.
+# The isolation is then structural rather than policy-dependent.
+#
+# Until then the dashboard is reachable exactly the way it is on the droplet
+# today -- by tunnel:
+#
+#   kubectl -n backbone port-forward deploy/hermes-gateway 9119:9119
+#
+# (port-forward attaches to the pod's network namespace, so pod-loopback works.)
