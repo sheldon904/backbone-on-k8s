@@ -1,0 +1,267 @@
+# Defaults reproduce manifests/ exactly. scripts/parity-check.sh asserts that.
+#
+# Anything that differs between "my k3s box" and "a customer's cluster" is a
+# value. Anything that is a correctness constraint is NOT a value -- see the
+# gateway.replicas note below.
+
+nameOverride: ""
+fullnameOverride: ""
+
+# -----------------------------------------------------------------------------
+# Global
+# -----------------------------------------------------------------------------
+namespace:
+  # The chart does not create the namespace by default: `helm install -n` should
+  # own that, and creating it here makes `helm uninstall` capable of deleting a
+  # namespace containing the PVC with all the state in it.
+  create: false
+  name: backbone
+  # Pod Security Admission level applied when create is true.
+  podSecurityStandard: restricted
+
+image:
+  registry: ghcr.io
+  repository: sheldon904
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Applied to every pod. Cluster-wide scheduling constraints belong here.
+nodeSelector: {}
+tolerations: []
+podAnnotations: {}
+podLabels: {}
+
+# -----------------------------------------------------------------------------
+# hermes-gateway — the stateful singleton
+# -----------------------------------------------------------------------------
+gateway:
+  enabled: true
+
+  # DELIBERATELY NOT A VALUE.
+  #
+  # There is no `gateway.replicas`. The gateway is the sole writer to five SQLite
+  # databases and runs the cron scheduler in-process; a second replica is a
+  # data-loss bug, not a scaling knob. Exposing it as a value would invite
+  # someone to set it to 3 during an incident. docs/02-STATE-TRADEOFFS.md §3.
+
+  image:
+    name: backbone-hermes-gateway
+    tag: ""        # defaults to .Chart.AppVersion
+  webhookPort: 8645
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+  persistence:
+    enabled: true
+    size: 20Gi
+    # Empty means the cluster default (local-path on k3s).
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    existingClaim: ""
+
+  # 180s drain + grace. Lowering this SIGKILLs mid-conversation on every rollout.
+  terminationGracePeriodSeconds: 240
+
+  securityContext:
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    # UNVERIFIED that the gateway tolerates a read-only root filesystem
+    # (VALIDATION.md C11). Exposed as a value so a first bring-up can flip it
+    # without editing templates -- but the default stays true, and turning it
+    # off should be a recorded decision, not a convenience.
+    readOnlyRootFilesystem: true
+
+  dashboard:
+    enabled: true
+    port: 9119
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 384Mi
+
+# -----------------------------------------------------------------------------
+# notify-mcp — stateless, the only thing here that scales
+# -----------------------------------------------------------------------------
+notifyMcp:
+  enabled: true
+  replicas: 2
+  image:
+    name: backbone-notify-mcp
+    tag: "0.1.0"
+  port: 8080
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 192Mi
+
+  securityContext:
+    runAsUser: 65532      # distroless nonroot
+    runAsGroup: 65532
+    fsGroup: 65532
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # ScheduleAnyway, not DoNotSchedule: on a single-node cluster DoNotSchedule
+  # leaves the second replica Pending forever.
+  topologySpread:
+    enabled: true
+    whenUnsatisfiable: ScheduleAnyway
+
+# -----------------------------------------------------------------------------
+# ntfy — notification bridge
+# -----------------------------------------------------------------------------
+ntfy:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: binwiederhier
+    name: ntfy
+    tag: v2.11.0
+  port: 80
+  persistence:
+    size: 2Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  securityContext:
+    runAsUser: 2586
+    runAsGroup: 2586
+    fsGroup: 2586
+
+# -----------------------------------------------------------------------------
+# Configuration (non-secret)
+# -----------------------------------------------------------------------------
+config:
+  timezone: "America/New_York"
+  ntfyShortcutName: "Backbone Notify Bridge"
+  model:
+    default: "qwen/qwen3-235b-a22b-2507"
+    provider: "openrouter"
+    baseUrl: "https://openrouter.ai/api/v1"
+  agent:
+    maxTurns: 60
+    gatewayTimeout: 1800
+    restartDrainTimeout: 180
+
+# -----------------------------------------------------------------------------
+# Secrets
+# -----------------------------------------------------------------------------
+secrets:
+  # The chart NEVER templates secret values. It references a Secret that already
+  # exists, created either by kubectl or -- from Phase 4 -- by the sealed-secrets
+  # controller decrypting a committed SealedSecret.
+  #
+  # There is no `secrets.values` map, on purpose: that pattern puts plaintext in
+  # values.yaml, which ends up in shell history, CI logs and helm's release
+  # secret. docs/04-SECRETS.md §2.
+  existingSecret: backbone-secrets
+
+# -----------------------------------------------------------------------------
+# Ingress
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: traefik
+  host: backbone.example.internal
+  # Machine-to-machine callbacks (Vapi, Photon) that cannot do OIDC. Shared
+  # secret in the request is their only auth, so they stay outside the Keycloak
+  # flow and get a rate limit instead.
+  webhookPath: /webhooks
+  tls:
+    enabled: true
+    secretName: backbone-tls
+    clusterIssuer: letsencrypt-prod
+  rateLimit:
+    enabled: true
+    average: 20
+    burst: 40
+  # The dashboard is only routed once oauth2-proxy is in front of it. Setting
+  # this true without sso.enabled is refused by the template.
+  exposeDashboard: false
+
+# -----------------------------------------------------------------------------
+# Phase 4 — enterprise controls
+# -----------------------------------------------------------------------------
+networkPolicy:
+  # Default-deny on ingress AND egress, with explicit allow rules.
+  enabled: true
+  # Egress to the internet is required: OpenRouter, Telegram, Google APIs. The
+  # allow rule is "all IPv4 except RFC1918 and link-local", which prevents a
+  # compromised pod reaching cluster-internal or cloud metadata endpoints while
+  # still permitting its real work.
+  allowExternalEgress: true
+  # 169.254.169.254 is the cloud metadata service. Blocking it is the single
+  # highest-value egress rule on any cloud cluster.
+  blockedEgressCidrs:
+    - 169.254.0.0/16
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  dnsPort: 53
+
+sso:
+  # oauth2-proxy sidecar in the gateway pod, in front of the dashboard.
+  enabled: false
+  issuerUrl: "https://keycloak.example.internal/realms/backbone"
+  clientId: "backbone-dashboard"
+  # Name of a Secret holding client-secret and cookie-secret. Never inline.
+  existingSecret: "oauth2-proxy-secrets"
+  image: "quay.io/oauth2-proxy/oauth2-proxy:v7.7.1"
+  port: 4180
+  emailDomains: []
+  allowedGroups: []
+
+audit:
+  # CronJob that rotates and prunes the audit stream on the state PVC.
+  enabled: true
+  schedule: "17 4 * * *"
+  retentionDays: 90
+  # Gate: the governance audit stream does not currently emit (Phase 0 §2).
+  # This job manages the streams that DO emit. docs/RETENTION.md.
+  streams:
+    - logs/agent.log
+
+backup:
+  enabled: true
+  schedule: "0 7 * * *"
+  # sqlite3 .backup, not cp -- cp on a live WAL-mode database yields a torn file.
+  retentionDays: 14
+
+# -----------------------------------------------------------------------------
+# Phase 5 — observability
+# -----------------------------------------------------------------------------
+monitoring:
+  # ServiceMonitor requires the Prometheus Operator CRDs. Off by default so the
+  # chart installs on a bare cluster.
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+  prometheusRule:
+    enabled: false
+  # Scrape annotations work without the operator, so they are on by default.
+  scrapeAnnotations: true
+
+tracing:
+  # Langfuse. Off by default: it needs its own Postgres and an API key.
+  enabled: false
+  host: "http://langfuse.observability.svc.cluster.local:3000"
+  existingSecret: "langfuse-keys"
+  sampleRate: 1.0

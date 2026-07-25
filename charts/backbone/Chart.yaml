@@ -1,0 +1,23 @@
+apiVersion: v2
+name: backbone
+description: Backbone — a personal always-on agent system on Kubernetes. Gateway, notify MCP tool server, and notification bridge.
+type: application
+
+# Chart version tracks this repo. appVersion tracks the hermes-agent release the
+# gateway image is built from — v0.18.0 (upstream 07e97d2f), the version
+# observed running during the Phase 0 audit.
+version: 0.1.0
+appVersion: "0.18.0"
+
+keywords: [agent, mcp, hermes, k3s]
+home: https://github.com/sheldon904/backbone-on-k8s
+sources:
+  - https://github.com/sheldon904/backbone-on-k8s
+maintainers:
+  - name: sheldon904
+    url: https://github.com/sheldon904
+
+annotations:
+  # The plain manifests in manifests/ came first and are kept as the teaching
+  # artifact. This chart is a translation of them, not the other way round.
+  backbone.io/derived-from: manifests/
