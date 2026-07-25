@@ -74,6 +74,41 @@ spec:
         - protocol: TCP
           port: {{ .Values.notifyMcp.port }}
 ---
+# 3b. ...and the EGRESS half of the same flow.
+#
+# NetworkPolicy is directional. An ingress rule on the destination is only half
+# a permission: with default-deny on egress, the SOURCE must also be allowed to
+# send. Rule 6 below allows egress to the internet but excludes every RFC1918
+# range -- and ClusterIPs live in 10.43.0.0/16, inside 10.0.0.0/8. So the
+# external-egress rule actively DENIES in-cluster traffic, and without this
+# policy the gateway cannot reach notify-mcp at all.
+#
+# Found the hard way on 2026-07-25: the negative test passed, the positive
+# control failed, and the cluster looked healthy the whole time.
+# docs/OPERATIONS.md.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $full }}-gateway-egress-notify
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: notify-mcp
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.notifyMcp.port }}
+---
 # 4. notify-mcp -> ntfy. Nothing else may reach ntfy: a pod that can publish to
 # an arbitrary topic can impersonate the system's alerts.
 apiVersion: networking.k8s.io/v1
@@ -94,6 +129,30 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: notify-mcp
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.ntfy.port }}
+---
+# 4b. EGRESS half of notify-mcp -> ntfy, for the same reason as 3b.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $full }}-notify-egress-ntfy
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ntfy
               app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
         - protocol: TCP
@@ -141,6 +200,11 @@ spec:
 #
 # Note this is an IPv4 rule. If the cluster has IPv6 egress, an equivalent
 # except-block for fc00::/7 and fe80::/10 is needed and is NOT present here.
+#
+# TRAP: because 10.0.0.0/8 is excluded, this rule DENIES all in-cluster traffic
+# (ClusterIPs are 10.43.0.0/16, pods 10.42.0.0/16). Every in-cluster flow
+# therefore needs its own explicit egress policy -- rules 3b and 4b. Omitting
+# them produces a cluster where every pod is Running and nothing can talk.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
