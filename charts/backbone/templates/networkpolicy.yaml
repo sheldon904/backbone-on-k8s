@@ -1,0 +1,172 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $ns := include "backbone.namespace" . }}
+{{- $full := include "backbone.fullname" . }}
+---
+# 1. DEFAULT DENY, ingress AND egress.
+#
+# An empty podSelector matches every pod in the namespace. Listing both policy
+# types with no rules denies both directions. Everything after this is an
+# explicit exception.
+#
+# Egress-deny is the half people skip, and it is the half that matters after a
+# compromise: it is what stops a pod that has been taken over from reaching the
+# cloud metadata endpoint or scanning the cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $full }}-default-deny
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+# 2. DNS. Without this every other egress rule is useless, because the pod
+# cannot resolve the name it is allowed to reach. This is the single most
+# common reason a default-deny egress policy "breaks everything".
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $full }}-allow-dns
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: {{ .Values.networkPolicy.dnsPort }}
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.dnsPort }}
+---
+# 3. gateway -> notify-mcp.
+#
+# This rule is the entire justification for porting the MCP server from stdio to
+# HTTP. As a forked child the call was a function call inside one process and no
+# policy could express it. Now the trust relationship is declared and enforced.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $full }}-gateway-to-notify
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: hermes-gateway
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.notifyMcp.port }}
+---
+# 4. notify-mcp -> ntfy. Nothing else may reach ntfy: a pod that can publish to
+# an arbitrary topic can impersonate the system's alerts.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $full }}-notify-to-ntfy
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ntfy
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: notify-mcp
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.ntfy.port }}
+---
+# 5. Ingress controller -> gateway webhook. Scoped to the controller's
+# namespace, not "any namespace".
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $full }}-ingress-to-gateway
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: {{ .Values.gateway.webhookPort }}
+        {{- if .Values.sso.enabled }}
+        - protocol: TCP
+          port: {{ .Values.sso.port }}
+        {{- end }}
+{{- if .Values.networkPolicy.allowExternalEgress }}
+---
+# 6. Egress to the public internet -- and ONLY the public internet.
+#
+# The gateway genuinely needs to reach OpenRouter, Telegram and Google APIs, and
+# their address ranges are not stable enough to enumerate. So the rule is
+# inverted: allow 0.0.0.0/0 minus every private range, minus link-local.
+#
+# 169.254.0.0/16 is the important exclusion. It covers 169.254.169.254, the
+# cloud instance metadata service -- which on most providers will hand out
+# credentials to anything that asks. Blocking it is the highest-value single
+# egress rule on any cloud cluster, and it costs nothing.
+#
+# Note this is an IPv4 rule. If the cluster has IPv6 egress, an equivalent
+# except-block for fc00::/7 and fe80::/10 is needed and is NOT present here.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $full }}-allow-external-egress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [hermes-gateway, notify-mcp]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              {{- range .Values.networkPolicy.blockedEgressCidrs }}
+              - {{ . }}
+              {{- end }}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+{{- end }}
+{{- end }}
