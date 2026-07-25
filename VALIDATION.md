@@ -54,9 +54,6 @@ Each row names the command and the observed result.
 ## 2. Verified in CI
 
 CI runs on GitHub Actions, which has the Docker, Helm and Kubernetes tooling this droplet does
-not. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-
-CI runs on GitHub Actions, which has the Docker, Helm and Kubernetes tooling this droplet does
 not. Rows below are from run
 [`30169059862`](https://github.com/sheldon904/backbone-on-k8s/actions/runs/30169059862) —
 **all 4 jobs green**.
