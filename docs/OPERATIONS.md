@@ -243,3 +243,71 @@ image would have built *without* the patch and looked entirely healthy.
 [`VALIDATION.md`](../VALIDATION.md) C13 moves to section 2 as CI8. 365 MB is larger than it needs
 to be — the venv carries every optional dependency group named in `HERMES_EXTRAS`, and trimming
 it is worth a pass once there is a cluster to test against.
+
+## 2026-07-25 — a hardening test hung, and the hang was in the production path
+
+**Symptom.** After adding the audit emitter to notify-mcp, `node --test dist/audit.test.js`
+never returned. Not slow — *never*. Two runs sat at 10 minutes. The process was `State: S`
+(sleeping), single-threaded, and had burned **6.5 s user / 15 s sys** in 30 s of wall clock, so
+it was churning syscalls rather than blocking on I/O.
+
+**What I thought.** Resource starvation. This box is 1 vCPU with 621 MB of swap in use, load was
+2.8, and I had accidentally left two test runs competing. I killed the duplicates and re-ran.
+Still hung. Then I suspected the OOM killer, because this droplet has a documented history of
+OOM freezes.
+
+Both wrong. `dmesg` showed no OOM kills, `/proc/pressure/memory` was flat zero, and
+`node -e 'console.log(1)'` returned in **73 ms**. The environment was fine.
+
+**What it actually was.** Piping to `tail` had been hiding the output — `tail` only flushes at
+EOF, and the process never reached EOF. Redirecting to a file instead showed exactly where it
+stopped:
+
+```
+ok   append+verify (2ms)
+ok   50 lines (3ms)
+--- now the suspicious one ---
+                              <- nothing further, ever
+```
+
+The suspicious one was a test asserting that an unwritable audit path degrades gracefully. It
+pointed at `/proc/definitely-not-writable/audit.jsonl`, and the hang is in:
+
+```ts
+if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+```
+
+**`mkdirSync(recursive: true)` does not fail fast on procfs.** Against a nonexistent path under
+`/proc` it spins instead of throwing EACCES. The `try/catch` around it was useless — you cannot
+catch a call that never returns.
+
+**Why this mattered far more than a broken test.** That line was in `AuditLog.init()`, the
+production path. Any deployment where `BACKBONE_AUDIT_DIR` pointed somewhere the container could
+not write — a misconfigured `volumeMounts`, a `readOnlyRootFilesystem` with the audit volume
+missing, a typo'd subPath — would have **hung the first tool call that tried to audit**, and
+every one after it. The pod would pass `/healthz` throughout, because the HTTP server was fine.
+It is the same failure shape as the two earlier entries in this log: green checks, dead system.
+
+**Fix.** Probe before creating, and latch the failure:
+
+```ts
+let ancestor = dir;
+while (!existsSync(ancestor) && ancestor !== dirname(ancestor)) ancestor = dirname(ancestor);
+accessSync(ancestor, constants.W_OK);      // throws fast, catchable
+if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+accessSync(dir, constants.W_OK);
+```
+
+On failure, `disabled = true` latches so a bad path is not re-probed on every tool call, and
+auditing degrades to a structured stderr line. The tool call still succeeds — an audit failure
+must never take down the action it is auditing.
+
+**Verified.** 13/13 pass in **200 ms**. Two regression tests now guard it: one against a
+`chmod 0500` directory on a normal filesystem, one specifically against procfs, both asserting
+completion in under 2 s rather than merely asserting the return value.
+
+**Kept as a lesson.** Three separate times in this project a check has been green for the wrong
+reason. This one inverts it: a *test* was red for the right reason, and I nearly dismissed it as
+an environment problem because the box is small and genuinely was loaded. The tell was `sys`
+time — a starved process waits, it does not burn 15 seconds of kernel time. And: never pipe a
+possibly-hanging command through `tail`.

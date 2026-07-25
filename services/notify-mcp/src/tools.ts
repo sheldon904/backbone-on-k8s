@@ -13,6 +13,7 @@ import {
   type NotifyConfig,
 } from './notify.js';
 import { metrics } from './metrics.js';
+import { AuditLog } from './audit.js';
 
 export interface BackboneTool {
   name: string;
@@ -70,6 +71,10 @@ export const NOTIFY_INPUT_SCHEMA: Record<string, unknown> = {
   required: ['text'],
 };
 
+/** One chain per process. Two replicas therefore keep two independent,
+ *  independently-verifiable files -- see audit.ts. */
+const auditLog = new AuditLog();
+
 export function buildTools(cfg: NotifyConfig = configFromEnv()): BackboneTool[] {
   return [
     {
@@ -111,10 +116,30 @@ export function buildTools(cfg: NotifyConfig = configFromEnv()): BackboneTool[] 
           sendNtfy(cfg, text, { title, priority, tags, ...(clickUrl ? { clickUrl } : {}) }),
         ]);
 
-        metrics.observeNotify({
-          telegramOk: telegram.ok,
-          ntfyOk: ntfy.ok,
-          durationMs: Date.now() - started,
+        const durationMs = Date.now() - started;
+        metrics.observeNotify({ telegramOk: telegram.ok, ntfyOk: ntfy.ok, durationMs });
+
+        // Audit AFTER the action, recording what actually happened rather than
+        // what was intended. A refused or failed delivery is as much an audit
+        // event as a successful one -- `category` distinguishes them.
+        //
+        // Never record `text`: the audit volume has a 90-day retention and the
+        // message body is the most sensitive field in the call. Length only.
+        auditLog.append({
+          category: telegram.ok || ntfy.ok ? 'execute' : 'refuse',
+          payload: {
+            tool: 'notify',
+            ok: telegram.ok || ntfy.ok,
+            channels: { telegram: telegram.ok, ntfy: ntfy.ok },
+            failures: {
+              ...(telegram.ok ? {} : { telegram: telegram.error }),
+              ...(ntfy.ok ? {} : { ntfy: ntfy.error }),
+            },
+            actionKind: wantsReminder ? 'reminder' : 'none',
+            textLength: text.length,
+            priority,
+            durationMs,
+          },
         });
 
         return {

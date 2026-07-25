@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. **33 rows verified locally, 8 in CI, 17 requiring a cluster.**
+Last updated: 2026-07-25. **38 rows verified locally, 8 in CI, 17 requiring a cluster.**
 
 ---
 
@@ -54,6 +54,11 @@ Each row names the command and the observed result.
 | L31 | The bundled Langfuse plugin wants `HERMES_LANGFUSE_*`, not bare `LANGFUSE_HOST` | read `plugins/observability/langfuse/` + `hermes_cli/config.py` | plugin exists; env names are `HERMES_LANGFUSE_{BASE_URL,PUBLIC_KEY,SECRET_KEY,SAMPLE_RATE}`. **The chart was injecting names the plugin ignores** — fixed |
 | L32 | hermes-agent exposes **no** Prometheus endpoint | `grep -rniE 'prometheus\|/metrics' --include='*.py'` | no match — confirms the largest observability gap is real |
 | L33 | Recall latency **is** a metric of this system, not another project | `memory_store.db` | `recall_log` table, **2725 rows**, live; `plugins.hybrid.recall_log_enabled: true` |
+| L34 | notify-mcp emits an **append-only hash-chained JSONL audit stream** | `node --test dist/audit.test.js` | **13/13 pass**; edit / delete / head-truncation each detected at the correct line |
+| L35 | The chain **resumes** across a restart rather than resetting `seq` | same suite | new instance on an existing file continues at seq 3, chain still valid |
+| L36 | Two replicas keep independent, independently-verifiable chains | same suite | per-pod files both verify |
+| L37 | An unwritable audit path **fails fast** and never spins | same suite | `chmod 0500` dir and procfs both return null in <2 s (previously hung forever — docs/OPERATIONS.md) |
+| L38 | Full notify-mcp suite | `node --test dist/*.test.js` | **35/35 pass, 1.4 s** |
 
 ## 2. Verified in CI
 
