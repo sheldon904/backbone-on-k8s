@@ -114,6 +114,16 @@ notifyMcp:
     enabled: true
     minAvailable: 1
 
+  # Append-only hash-chained JSONL audit stream (docs/RETENTION.md).
+  # Each replica writes its own audit-<pod>.jsonl, so a single RWO volume is
+  # safe ONLY while all replicas share a node -- true on single-node k3s, not
+  # true in general. A multi-node cluster needs RWX here.
+  audit:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+    mountPath: /var/lib/backbone/audit
+
   # ScheduleAnyway, not DoNotSchedule: on a single-node cluster DoNotSchedule
   # leaves the second replica Pending forever.
   topologySpread:
@@ -237,6 +247,8 @@ audit:
   # This job manages the streams that DO emit. docs/RETENTION.md.
   streams:
     - logs/agent.log
+    # notify-mcp's hash-chained JSONL audit, one file per replica.
+    - audit/audit-*.jsonl
 
 backup:
   enabled: true

@@ -80,6 +80,10 @@ spec:
           env:
             - name: PORT
               value: {{ .Values.notifyMcp.port | quote }}
+            {{- if .Values.notifyMcp.audit.enabled }}
+            - name: BACKBONE_AUDIT_DIR
+              value: {{ .Values.notifyMcp.audit.mountPath | quote }}
+            {{- end }}
             - name: BACKBONE_NTFY_BASE_URL
               valueFrom:
                 configMapKeyRef:
@@ -102,6 +106,10 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if .Values.notifyMcp.audit.enabled }}
+            - name: audit
+              mountPath: {{ .Values.notifyMcp.audit.mountPath }}
+            {{- end }}
           resources:
             {{- toYaml .Values.notifyMcp.resources | nindent 12 }}
           startupProbe:
@@ -133,7 +141,33 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: 16Mi
+        {{- if .Values.notifyMcp.audit.enabled }}
+        - name: audit
+          persistentVolumeClaim:
+            claimName: {{ $name }}-audit
+        {{- end }}
       terminationGracePeriodSeconds: 30
+{{- if .Values.notifyMcp.audit.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-audit
+  namespace: {{ include "backbone.namespace" . }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+  annotations:
+    # The audit stream is evidence. Do not let `helm uninstall` delete it.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.notifyMcp.audit.size }}
+  {{- with .Values.notifyMcp.audit.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service
