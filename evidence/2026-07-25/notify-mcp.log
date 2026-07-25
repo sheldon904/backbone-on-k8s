@@ -1,0 +1,3 @@
+Found 2 pods, using pod/backbone-notify-mcp-9bf7cb5b9-7csb8
+{"ts":"2026-07-25T22:23:26.955Z","level":"info","svc":"notify-mcp","msg":"starting","port":8080,"tools":["notify"],"channels":{"telegram":true,"ntfy":true}}
+{"ts":"2026-07-25T22:23:27.009Z","level":"info","svc":"notify-mcp","msg":"listening","host":"0.0.0.0","port":8080}

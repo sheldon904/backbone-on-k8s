@@ -1,0 +1,34 @@
+# NetworkPolicy enforcement proof — backbone-on-k8s
+# Cluster: k3s v1.36.2 + Cilium 1.16.5 (flannel disabled; flannel cannot enforce NetworkPolicy)
+# Captured 2026-07-25
+
+## Policies in force
+NAME                             POD-SELECTOR                                                                AGE
+backbone-allow-dns               <none>                                                                      20m
+backbone-allow-external-egress   app.kubernetes.io/name in (hermes-gateway,notify-mcp)                       20m
+backbone-default-deny            <none>                                                                      20m
+backbone-gateway-egress-notify   app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway   102s
+backbone-gateway-to-notify       app.kubernetes.io/instance=backbone,app.kubernetes.io/name=notify-mcp       20m
+backbone-ingress-to-gateway      app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway   20m
+backbone-notify-egress-ntfy      app.kubernetes.io/instance=backbone,app.kubernetes.io/name=notify-mcp       102s
+backbone-notify-to-ntfy          app.kubernetes.io/instance=backbone,app.kubernetes.io/name=ntfy             20m
+
+## NEGATIVE — a pod with no allow-list entry, targeting two protected services
+$ kubectl -n backbone run probe --image=curlimages/curl -- curl -m 6 http://backbone-ntfy
+ntfy:       HTTP 000   (curl 28: connection timed out)  -> REFUSED
+notify-mcp: HTTP 000   (curl 28: connection timed out)  -> REFUSED
+
+## POSITIVE — the gateway, which IS allow-listed to reach notify-mcp
+$ kubectl -n backbone exec deploy/backbone-gateway -c gateway -- python -c "..."
+/healthz        -> 200
+MCP tools/list  -> notify tool present
+
+## Both directions correct: allowed traffic flows, disallowed traffic is refused.
+## An earlier run had BOTH refused -- rules 3/4 granted ingress on the destination
+## but nothing granted egress from the source, and the external-egress rule
+## excludes 10.0.0.0/8, which contains all ClusterIPs. Fixed by rules 3b/4b.
+
+## Pod Security Admission also enforcing (incidental):
+## the first probe attempt was rejected outright --
+##   Error from server (Forbidden): pods "probe" is forbidden:
+##   violates PodSecurity "restricted:latest"

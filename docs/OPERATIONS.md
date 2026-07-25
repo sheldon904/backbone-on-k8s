@@ -355,3 +355,82 @@ is a property, not a step.
 **Also worth noting:** C11 is still unproven. `readOnlyRootFilesystem` was **not** the cause
 here and the gateway is currently running *without* it under Compose. The Kubernetes deploy in
 Stage 2 is the real test.
+
+## 2026-07-25 — k3s bring-up: two real findings, one of them a bug I shipped
+
+**Cluster:** fresh 8 GB droplet, k3s v1.36.2 with `--flannel-backend=none
+--disable-network-policy`, Cilium 1.16.5. Everything below is from that cluster.
+
+### Finding 1 — C11 is PROVEN. `readOnlyRootFilesystem: true` holds for the gateway.
+
+This was the largest open unknown since Phase 1: whether upstream hermes-agent tolerates an
+immutable root filesystem. It does.
+
+```
+gateway:   ready=true  restarts=0
+dashboard: ready=false restarts=3  CrashLoopBackOff
+```
+
+The pod was `1/2`, and I assumed the gateway. It was the **dashboard**, for an unrelated reason:
+
+```
+✗ --skip-build was passed but no web dist found at:
+  /opt/venv/lib/python3.11/site-packages/hermes_cli/web_dist
+```
+
+The pip-installed wheel does not ship built web assets — `find /opt/venv -name web_dist` returns
+nothing. The dashboard needs an `npm run build -w web` step the Python package has no way to
+provide, so the gateway image needs a Node build stage. Disabled for now and tracked; it is the
+only thing blocking the SSO story, since the dashboard is the web surface Keycloak would front.
+
+### Finding 2 — my NetworkPolicy produced a cluster where nothing could talk
+
+The negative test passed on the first attempt. A pod with no allow-list entry was refused both
+protected services:
+
+```
+ntfy:       HTTP 000  (curl 28: timed out)  -> REFUSED
+notify-mcp: HTTP 000  (curl 28: timed out)  -> REFUSED
+```
+
+Then the **positive control failed too**. The gateway — which has an explicit allow rule to
+reach notify-mcp — also timed out.
+
+**What I thought.** Cilium not programming the policy, or a label selector typo.
+
+**What it actually was.** NetworkPolicy is directional, and I had written only half of each
+flow. Rules 3 and 4 granted **ingress** on the destination; nothing granted **egress** from the
+source. And rule 6 — "allow the internet, except every RFC1918 range" — actively *denies*
+in-cluster traffic, because ClusterIPs live in `10.43.0.0/16`, inside the excluded `10.0.0.0/8`.
+
+So the chart as committed produced a cluster where `kubectl get pods` is entirely green,
+every probe passes, and **no service can reach any other service**. It would have looked
+perfect on a status page.
+
+**Fix.** Rules 3b and 4b, the egress halves, plus a `TRAP:` note on rule 6 so the next reader
+does not rediscover it. After the fix, re-ran both directions:
+
+```
+POSITIVE  gateway -> notify-mcp   /healthz 200, MCP tools/list returns the notify tool
+NEGATIVE  probe   -> ntfy         still REFUSED
+          probe   -> notify-mcp   still REFUSED
+```
+
+Both correct. Evidence in `evidence/2026-07-25/networkpolicy-proof.txt`.
+
+**Kept as a lesson.** A negative test alone is worthless: "refused" and "broken" are the same
+observation. It was the *positive control* that found the bug, and I only wrote one because the
+demo needed to show the policy was selective rather than merely blocking. Every access-control
+test in this repo now asserts both directions.
+
+### Incidental — Pod Security Admission is real
+
+The first probe pod was rejected outright:
+
+```
+Error from server (Forbidden): pods "probe" is forbidden:
+violates PodSecurity "restricted:latest": allowPrivilegeEscalation != false, ...
+```
+
+`pod-security.kubernetes.io/enforce: restricted` on the namespace, set in Phase 2 and never
+tested until something non-compliant tried to run. It worked.

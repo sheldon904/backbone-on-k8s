@@ -1,0 +1,61 @@
+# Captured 2026-07-25T22:43:15+00:00 on backbone-k8s
+
+## nodes
+NAME           STATUS   ROLES           AGE   VERSION        INTERNAL-IP      EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION              CONTAINER-RUNTIME
+backbone-k8s   Ready    control-plane   27m   v1.36.2+k3s1   <droplet-ip>   <none>        Ubuntu 24.04.4 LTS   6.8.0-124-generic (amd64)   containerd://2.3.2-k3s2
+
+## pods
+NAME                                  READY   STATUS    RESTARTS   AGE   IP            NODE           NOMINATED NODE   READINESS GATES
+backbone-gateway-688b9bb897-nhctx     1/1     Running   0          16m   10.42.0.50    backbone-k8s   <none>           <none>
+backbone-notify-mcp-9bf7cb5b9-7csb8   1/1     Running   0          19m   10.42.0.65    backbone-k8s   <none>           <none>
+backbone-notify-mcp-9bf7cb5b9-crt8k   1/1     Running   0          19m   10.42.0.124   backbone-k8s   <none>           <none>
+backbone-ntfy-0                       1/1     Running   0          17m   10.42.0.95    backbone-k8s   <none>           <none>
+
+## services
+NAME                  TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+backbone-gateway      ClusterIP   10.43.32.33     <none>        8645/TCP   19m
+backbone-notify-mcp   ClusterIP   10.43.3.136     <none>        80/TCP     19m
+backbone-ntfy         ClusterIP   10.43.142.223   <none>        80/TCP     19m
+
+## pvc
+NAME                     STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+backbone-gateway-state   Bound    pvc-869516cf-531b-4597-a4f1-a57d1aba502b   20Gi       RWO            local-path     <unset>                 19m
+cache-backbone-ntfy-0    Bound    pvc-3342a47c-1fa2-41dd-b9bd-248729d90836   2Gi        RWO            local-path     <unset>                 19m
+
+## networkpolicies
+NAME                             POD-SELECTOR                                                                AGE
+backbone-allow-dns               <none>                                                                      19m
+backbone-allow-external-egress   app.kubernetes.io/name in (hermes-gateway,notify-mcp)                       19m
+backbone-default-deny            <none>                                                                      19m
+backbone-gateway-egress-notify   app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway   80s
+backbone-gateway-to-notify       app.kubernetes.io/instance=backbone,app.kubernetes.io/name=notify-mcp       19m
+backbone-ingress-to-gateway      app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway   19m
+backbone-notify-egress-ntfy      app.kubernetes.io/instance=backbone,app.kubernetes.io/name=notify-mcp       80s
+backbone-notify-to-ntfy          app.kubernetes.io/instance=backbone,app.kubernetes.io/name=ntfy             19m
+
+## cronjobs
+NAME                    SCHEDULE     TIMEZONE   SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+backbone-audit-rotate   17 4 * * *   <none>     False     0        <none>          19m
+backbone-backup         0 7 * * *    <none>     False     0        <none>          19m
+
+## sealedsecret -> decrypted Secret
+NAME                                        AGE
+sealedsecret.bitnami.com/backbone-secrets   20m
+
+NAME                      TYPE     DATA   AGE
+secret/backbone-secrets   Opaque   5      20m
+
+## helm
+NAME       	NAMESPACE  	REVISION	UPDATED                                	STATUS  	CHART                      	APP VERSION
+backbone   	backbone   	4       	2026-07-25 22:41:55.17147096 +0000 UTC 	deployed	backbone-0.1.0             	0.18.0     
+cilium     	kube-system	1       	2026-07-25 22:17:03.321559105 +0000 UTC	deployed	cilium-1.16.5              	1.16.5     
+traefik    	kube-system	1       	2026-07-25 22:18:24.132716262 +0000 UTC	deployed	traefik-40.1.3+up40.1.0    	v3.7.1     
+traefik-crd	kube-system	1       	2026-07-25 22:18:05.894580715 +0000 UTC	deployed	traefik-crd-40.1.3+up40.1.0	v3.7.1     
+
+## cilium
+OK
+
+## versions
+Client Version: v1.36.2+k3s1
+Kustomize Version: v5.8.1
+Server Version: v1.36.2+k3s1
