@@ -305,6 +305,39 @@ Carried into the design, not decided here:
   Prometheus.** The target cluster has to be a different, larger machine; this droplet is the
   source, not the destination.
 
+## 12. Correction — added 2026-07-25, after this audit was written
+
+This audit was wrong about one thing, found when the first CI run tried to build the gateway
+image. Left in place rather than silently edited, because the miss is instructive.
+
+**The running hermes-agent checkout is not pristine upstream.**
+
+```
+$ git -C ~/.hermes/hermes-agent status -sb
+## main...origin/main [behind 3644]
+ M cron/scheduler.py
+```
+
+Two facts §9 did not record:
+
+1. **It is 3644 commits behind upstream `main`.** Pinned, effectively, but by neglect rather
+   than by decision.
+2. **It carries an uncommitted local patch.** `cron/scheduler.py` changes upstream's hardcoded
+   `skip_memory=True` for cron-initiated agent runs into an opt-in gated on
+   `cron.memory_enabled` in `config.yaml` — which is set to `true`. All 8 enabled cron jobs
+   therefore run *with* persistent memory access, contrary to upstream behaviour.
+
+**Why it matters.** An image built from a pinned upstream ref reproduces the version but not the
+system. The patch would be lost, and the symptom is not a crash or a failed probe — the cron
+jobs keep running, with no memory. It would surface weeks later as "why has cron been dumb since
+the migration".
+
+**How it was missed.** §9 was built from `git remote -v`, `git log --oneline -3` and
+`hermes --version`. I never ran `git status`. One command, and it was the one that mattered.
+
+The patch is now vendored at `services/hermes-gateway/patches/0001-cron-memory-opt-in.patch` and
+applied at image build time in a way that fails the build if it stops applying.
+
 ---
 
 ## Reproducing this audit

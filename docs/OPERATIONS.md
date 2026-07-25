@@ -140,3 +140,82 @@ request.
 nothing about *which* process. Every port-based check in this repo now either asserts on
 response content or degrades to `skip`. Same failure shape as the transport bug two entries
 up: a green check that was not testing what it claimed to test.
+
+## 2026-07-25 — the gateway image build failed, and the reason corrected the Phase 0 audit
+
+**Symptom.** First CI run. Three jobs green; the `hermes-gateway` image build failed
+(`continue-on-error`, so it reported rather than blocked):
+
+```
+#10 0.635 warning: Could not find remote branch v0.18.0 to clone.
+#10 0.635 fatal: Remote branch v0.18.0 not found in upstream origin
+ERROR: failed to solve: process "git clone --depth 1 --branch v0.18.0 ..." exit code: 128
+```
+
+**What I thought.** A private repository, or a rate limit on an unauthenticated clone.
+
+**What it actually was.** Three separate things, in increasing order of importance.
+
+**1. The version string is not a git ref.** `hermes --version` prints:
+
+```
+Hermes Agent v0.18.0 (2026.7.1) · upstream 07e97d2f
+```
+
+I read `v0.18.0` as the tag. It is the internal product version. Upstream tags are date-based:
+
+```
+$ git ls-remote --tags https://github.com/NousResearch/hermes-agent.git | tail
+... refs/tags/v2026.6.5
+... refs/tags/v2026.7.1      <- this one
+... refs/tags/v2026.7.7
+... refs/tags/v2026.7.20
+```
+
+The parenthesised `(2026.7.1)` was the tag all along. Fixed: `HERMES_REF=v2026.7.1`.
+
+**2. The running checkout is 3644 commits behind upstream `main`.**
+
+```
+$ git -C ~/.hermes/hermes-agent status -sb
+## main...origin/main [behind 3644]
+ M cron/scheduler.py
+```
+
+Pinning a tag is still right — but "pinned to the version that is running" and "pinned to
+something recent" are very different claims, and only the first is true.
+
+**3. The running checkout is patched. My Phase 0 audit missed this.**
+
+That ` M cron/scheduler.py` is an uncommitted local modification to upstream:
+
+```python
+-            skip_memory=True,  # Cron system prompts would corrupt user representations
++            skip_memory=not bool((_cfg.get("cron") or {}).get("memory_enabled", False)),
+```
+
+Upstream hardcodes `skip_memory=True` for cron jobs. The live system deliberately makes it
+opt-in so cron agents can read and write persistent memory, and `config.yaml` sets
+`cron.memory_enabled: true`. The patch's own comment records that a hermes update reverts the
+file and it has to be reapplied.
+
+**This is the significant one.** An image built from a pinned upstream ref does **not**
+reproduce the running system. It silently loses the patch, and the symptom would be the 8 cron
+jobs running with no memory access — not a crash, not a failed probe, just subtly degraded
+agents. It would have been found weeks later, during Phase 6, as "why has cron been dumb since
+the migration".
+
+**What I got wrong in the audit.** [`00-CURRENT-STATE.md`](./00-CURRENT-STATE.md) recorded the
+upstream repo and version and treated the checkout as pristine. I ran `git log --oneline -3`
+and never ran `git status`. One command, and it was the one that mattered.
+
+**Fix.**
+- `HERMES_REF` corrected to `v2026.7.1`.
+- The Dockerfile now applies `patches/*.patch` after cloning, and **fails the build if a patch
+  does not apply** — because a silently skipped patch is exactly the failure mode above.
+- `00-CURRENT-STATE.md` gains a §12 recording the drift and the patch.
+- [`VALIDATION.md`](../VALIDATION.md) C13 stays unverified until a build is green.
+
+**Kept as a lesson.** "Pin the version you observed" is only as good as the observation. A
+version string printed by an application is a claim about itself, not a fact about its source
+tree. `git status` on a vendored checkout is not optional.

@@ -1,22 +1,27 @@
 # Hermes Agent gateway — the stateful singleton.
 #
-# This repo does not vendor, fork, or patch upstream (NousResearch/hermes-agent).
-# It installs a pinned commit. Rationale in docs/01-CONTAINERIZATION.md §5.
+# This repo does not vendor or fork upstream (NousResearch/hermes-agent) -- it
+# clones a pinned tag. It DOES apply one patch, because the running host
+# checkout carries one and an image without it does not reproduce the live
+# system. Rationale in docs/01-CONTAINERIZATION.md §5.
 #
-# NOT VERIFIED: this build has never succeeded, because the authoring host has
-# no container runtime. CI attempts it. Until CI is green, treat every claim
-# about this file as unproven -- VALIDATION.md row C13.
+# NOT VERIFIED: this build has never succeeded. The first CI attempt failed on
+# a wrong upstream ref (docs/OPERATIONS.md, 2026-07-25). Until CI is green,
+# treat every claim about this file as unproven -- VALIDATION.md row C13.
 
 ARG PYTHON_VERSION=3.11-slim
 
 # ---- build ----------------------------------------------------------------
 FROM python:${PYTHON_VERSION} AS build
 
-# Pin the exact upstream commit observed on the live host during the Phase 0
-# audit: hermes-agent v0.18.0, upstream 07e97d2f. Overridable so a rebuild can
-# move forward deliberately rather than by drift.
+# Pin the upstream tag corresponding to what runs on the live host. Overridable
+# so a rebuild moves forward deliberately rather than by drift.
 ARG HERMES_REPO=https://github.com/NousResearch/hermes-agent.git
-ARG HERMES_REF=v0.18.0
+# NOT v0.18.0. That is the internal product version `hermes --version` prints;
+# upstream tags are date-based. The parenthesised part of
+# "Hermes Agent v0.18.0 (2026.7.1)" is the actual tag.
+# docs/OPERATIONS.md, 2026-07-25.
+ARG HERMES_REF=v2026.7.1
 
 # git for the clone; build-essential because some transitive deps ship sdists
 # only. Both stay in the build stage.
@@ -26,6 +31,21 @@ RUN apt-get update \
 
 WORKDIR /src
 RUN git clone --depth 1 --branch "${HERMES_REF}" "${HERMES_REPO}" hermes-agent
+
+# The running host checkout is NOT pristine upstream -- it carries a local patch
+# that the Phase 0 audit missed. Applying it here is what makes this image
+# reproduce the live system rather than merely resemble it.
+#
+# `git apply` without --3way, so a patch that no longer applies FAILS THE BUILD.
+# A skipped patch is the dangerous case: cron jobs would run with no memory
+# access, which produces no crash and no failed probe, just worse agents.
+COPY patches/ /src/patches/
+RUN set -eu; \
+    for p in /src/patches/*.patch; do \
+      [ -e "$p" ] || continue; \
+      echo "applying $(basename "$p")"; \
+      git -C hermes-agent apply --verbose "$p"; \
+    done
 
 # Install into a relocatable venv that gets copied wholesale to the runtime
 # stage, so build tooling never reaches the final image.

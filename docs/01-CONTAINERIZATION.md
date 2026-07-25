@@ -161,12 +161,29 @@ pod than for the others.
 ## 5. The gateway image is not built from source in this repo
 
 `services/hermes-gateway/Dockerfile` installs `hermes-agent` from its upstream Git repository at
-a **pinned commit**. This repo does not vendor, fork, or patch upstream.
+a **pinned tag**. This repo does not vendor or fork upstream — but it does apply **one patch**,
+and that turned out to be non-negotiable.
 
-That is deliberate. The audit found the running version is v0.18.0 at upstream `07e97d2f`, and
-the memory notes one update-fragile local patch. Vendoring would make this repo responsible for
-tracking an actively developed upstream. Pinning a commit gives reproducible builds without
-that ownership.
+Not vendoring is deliberate: it would make this repo responsible for tracking an actively
+developed upstream. Pinning a tag gives reproducible builds without that ownership.
+
+**The patch is not optional, and finding that out cost a CI run.** The Phase 0 audit recorded
+the upstream repo and version and treated the checkout as pristine. It is not — `git status` on
+the running checkout shows an uncommitted modification to `cron/scheduler.py` that makes
+`skip_memory` opt-in for cron jobs instead of hardcoded true. Without it, all 8 cron jobs run
+with **no memory access**, and that failure is silent: no crash, no failed probe, just worse
+agents. It is vendored as `patches/0001-cron-memory-opt-in.patch` and applied with `git apply`
+*without* `--3way`, so a patch that stops applying **fails the build** rather than being skipped.
+
+Two further corrections from the same investigation:
+
+- The tag is **`v2026.7.1`**, not `v0.18.0`. `hermes --version` prints
+  `Hermes Agent v0.18.0 (2026.7.1)`; the first is an internal product version and the
+  parenthesised part is the upstream tag. Upstream tags are date-based.
+- The running checkout is **3644 commits behind** upstream `main`. Pinning is still correct, but
+  "pinned to what is running" and "pinned to something recent" are different claims.
+
+Full write-up in [`OPERATIONS.md`](./OPERATIONS.md), 2026-07-25.
 
 **Consequence, stated plainly:** the gateway image build is **unverified**. Whether
 `pip install` of that commit succeeds in a clean container, which optional dependency groups
