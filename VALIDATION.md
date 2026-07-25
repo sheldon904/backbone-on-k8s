@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. **29 rows verified locally, 8 in CI, 17 requiring a cluster.**
+Last updated: 2026-07-25. **29 rows verified locally, 8 in CI, 18 requiring a cluster.**
 
 ---
 
@@ -95,6 +95,7 @@ These are unproven. No document in this repo may state them as fact.
 | C16 | NetworkPolicy is **enforced** | k3s ships flannel, which does not enforce NetworkPolicy at all. Needs `--flannel-backend=none --disable-network-policy` plus Calico or Cilium. Until then the policies are accepted by the API server and enforced by nothing |
 | C17 | Sealed-secrets key rotation | the controller supports it; nothing in this repo drives it |
 | C18 | etcd encryption at rest | off by default on k3s; `--secrets-encryption` is a bootstrap flag, out of scope for the chart |
+| C19 | The gateway image reproduces the **running** system | only 1 of 3 local patches to upstream is vendored. `plugins/memory/holographic/store.py` (a transaction-leak fix) and `tools/memory_tool.py` (archival overflow) are not. An image built today is missing both — docs/00-CURRENT-STATE.md §12 |
 
 ## 4. Why this environment cannot verify more
 

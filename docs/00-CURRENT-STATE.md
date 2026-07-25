@@ -322,21 +322,41 @@ Two facts §9 did not record:
 
 1. **It is 3644 commits behind upstream `main`.** Pinned, effectively, but by neglect rather
    than by decision.
-2. **It carries an uncommitted local patch.** `cron/scheduler.py` changes upstream's hardcoded
-   `skip_memory=True` for cron-initiated agent runs into an opt-in gated on
-   `cron.memory_enabled` in `config.yaml` — which is set to `true`. All 8 enabled cron jobs
-   therefore run *with* persistent memory access, contrary to upstream behaviour.
+2. **It carries three uncommitted local patches**, not one — 147 insertions across three files:
+
+   ```
+   $ git -C ~/.hermes/hermes-agent diff --stat
+    cron/scheduler.py                   |   8 ++-
+    plugins/memory/holographic/store.py |   8 ++-
+    tools/memory_tool.py                | 140 +++++++++++++++++++++++++++++--
+   ```
+
+   | File | What it changes | Consequence if lost |
+   |---|---|---|
+   | `cron/scheduler.py` | upstream's hardcoded `skip_memory=True` for cron runs becomes opt-in on `cron.memory_enabled`, which `config.yaml` sets to `true` | all 8 cron jobs run with **no memory access** — silent, no crash |
+   | `plugins/memory/holographic/store.py` | adds a `rollback()` on the duplicate-content path. A failed INSERT had already opened a deferred write transaction; returning without commit or rollback **stranded it open** on a long-lived connection, locking every other writer out of `memory_store.db` until the process exited | a **database-wide write lock** regression — memory ingest and sync crons block |
+   | `tools/memory_tool.py` | an archival-overflow hook: an entry that exceeds the curated char budget is filed into an unbounded searchable tier instead of the write being rejected | memory writes fail at capacity instead of overflowing |
+
+   The middle one is a **bug fix**, not a preference. An image built from pristine upstream
+   reintroduces a transaction leak that locks the memory database.
 
 **Why it matters.** An image built from a pinned upstream ref reproduces the version but not the
-system. The patch would be lost, and the symptom is not a crash or a failed probe — the cron
-jobs keep running, with no memory. It would surface weeks later as "why has cron been dumb since
-the migration".
+system. All three patches would be lost, and none of them fails loudly: the cron jobs keep
+running with no memory, and the transaction leak returns as intermittent database-locked errors
+under concurrent memory writes. Both would surface weeks later, attributed to Kubernetes.
 
 **How it was missed.** §9 was built from `git remote -v`, `git log --oneline -3` and
 `hermes --version`. I never ran `git status`. One command, and it was the one that mattered.
 
-The patch is now vendored at `services/hermes-gateway/patches/0001-cron-memory-opt-in.patch` and
-applied at image build time in a way that fails the build if it stops applying.
+Only the first is vendored so far, at
+`services/hermes-gateway/patches/0001-cron-memory-opt-in.patch`, applied at build time in a way
+that **fails the build** if it stops applying. **The other two are not yet vendored** — that is
+tracked as [`VALIDATION.md`](../VALIDATION.md) row C19 and is an open gap, not a decision.
+
+A further caution: these are *uncommitted working-tree changes* on a checkout that a
+`hermes update` will overwrite. The `store.py.bak-txnleak-20260725` file sitting next to one of
+them is evidence of exactly that having happened before. The patches are not durable where they
+currently live, which is an argument for this repo owning them regardless of Kubernetes.
 
 ---
 
