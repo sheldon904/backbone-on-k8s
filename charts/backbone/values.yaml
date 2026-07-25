@@ -246,7 +246,7 @@ sso:
   # `https://<whatever-host-was-used>/oauth2/callback`, which will not match a
   # registered redirect URI unless you guessed the host correctly. Set it and
   # register the same string in Keycloak.
-  redirectUrl: ""”
+  redirectUrl: ""
   emailDomains: []
   allowedGroups: []
 
