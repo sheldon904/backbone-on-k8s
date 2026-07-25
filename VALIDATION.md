@@ -30,6 +30,14 @@ Each row names the command and the observed result.
 | L7 | 10 in-process cron jobs, 8 enabled | `~/.hermes/cron/jobs.json` | listed in [`docs/00-CURRENT-STATE.md#7`](docs/00-CURRENT-STATE.md) |
 | L8 | Public exposure is Tailscale Funnel, not an ingress controller | `tailscale serve status` | 3 Funnel paths; dashboard loopback-only |
 | L9 | No SSO on any surface today | `config.yaml`: `dashboard.oauth.client_id`, `dashboard.basic_auth.username` | both empty strings |
+| L10 | notify-mcp compiles clean and its tests pass | `npx tsc && node --test dist/*.test.js` | **22/22 pass**, tsc exit 0 |
+| L11 | The HTTP MCP transport answers `initialize` **and repeated** `tools/list` | `curl -X POST /mcp` x3, see `scripts/healthcheck.sh` | `serverInfo` returned; `notify` tool listed on requests 2 and 3 |
+| L12 | `tools/call notify` delivers end to end | server pointed at a local HTTP sink, `tools/call` with `action=reminder` | sink received `POST /local-test`, headers `Title/Priority/Tags/Click`, body `pod smoke test`; result `{"ok":true,"delivered":{"ntfy":true}}` |
+| L13 | The `Click` deep-link round-trips a reminder payload | same run, decoded the sink's `Click` header | `shortcuts://run-shortcut?name=Backbone%20Notify%20Bridge&...` decoding to `{action:reminder,title,due}` |
+| L14 | `/metrics` moves when the tool is used | `curl /metrics` before and after | `backbone_notify_total 0` → `1`; `channel_total{ntfy,ok} 1`, `{telegram,fail} 1` |
+| L15 | `/readyz` returns 503 with no channel configured | `readiness(configFromEnv({}))` + unit test | 503 `no delivery channel configured` |
+| L16 | `scripts/healthcheck.sh` is syntactically valid and correctly reports partial stacks | `bash -n`; then run against notify-mcp only | 5 notify checks ok, ntfy FAIL, gateway **skip** (correctly not claimed) |
+| L17 | No NUL bytes in tracked source | `grep -rlP '\x00' --include='*.ts' --include='*.json' --include='*.md' .` | no output |
 
 ## 2. Verified in CI
 
@@ -55,6 +63,10 @@ These are unproven. No document in this repo may state them as fact.
 | C7 | Grafana panels move when the system is used | live cluster + a real workload |
 | C8 | Daily workflows run on the cluster for 7 consecutive days | Phase 6, the actual point of the project |
 | C9 | `docs/OPERATIONS.md` contains real incidents | can only be earned by operating it |
+| C10 | hermes-agent v0.18.0 can consume an **HTTP** MCP endpoint (vs. needing a stdio→HTTP shim) | a config experiment against a gateway; not attempted, and out of scope for read-only work on the live host |
+| C11 | `readOnlyRootFilesystem: true` holds for the gateway | only discoverable by running it — it may write outside `~/.hermes` and `~/.cache` |
+| C12 | The Compose stack comes up and `healthcheck.sh` goes fully green | same blocker as C1 |
+| C13 | The `hermes-gateway` image builds at all | no container runtime here; CI attempts it |
 
 ## 4. Why this environment cannot verify more
 
