@@ -87,7 +87,7 @@ therefore aspirational-made-real, and that is stated rather than glossed.
 | `ProtectSystem=strict` | `readOnlyRootFilesystem: true` | **yes**, and stricter: systemd's `strict` still leaves `/dev`, `/proc`, `/sys` writable in places |
 | `ProtectHome=read-only` | n/a — there is no `/home` in the image | **superseded** |
 | `PrivateTmp=true` | `emptyDir` mounted at `/tmp` | **yes** |
-| `ReadWritePaths=…` | explicit `volumeMounts` only | **yes**, and narrower — the container has no other writable path at all |
+| `ReadWritePaths=…` | explicit `volumeMounts` only | **yes**, and narrower — but get the list *complete*. The unit names `~/.hermes`, `~/.local` and `~/.cache`; an early version of this repo mounted only the first and third, and the gateway died on a real cluster with `Read-only file system: '/home/hermes/.local'`. The systemd unit was the spec all along |
 | `ProtectKernelTunables/Modules/Logs` | `capabilities.drop: [ALL]` + no `/proc` or `/sys` mounts | **yes**, by construction |
 | `ProtectControlGroups=true` | container cgroup namespace | **yes**, by construction |
 | `ProtectClock=true` | `CAP_SYS_TIME` dropped with ALL | **yes** |

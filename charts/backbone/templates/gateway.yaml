@@ -136,6 +136,14 @@ spec:
               mountPath: /tmp
             - name: cache
               mountPath: /home/hermes/.cache
+            # XDG state dir. The hardened systemd unit listed this explicitly:
+            #   ReadWritePaths=/home/backbone/.hermes /home/backbone/.local /home/backbone/.cache
+            # I carried over .hermes and .cache and dropped .local, and the
+            # gateway hit `OSError: [Errno 30] Read-only file system:
+            # '/home/hermes/.local'` on a real cluster. The source unit named
+            # every path required; the mapping just had to be complete.
+            - name: xdg-state
+              mountPath: /home/hermes/.local
           resources:
             {{- toYaml .Values.gateway.resources | nindent 12 }}
           startupProbe:
@@ -180,6 +188,14 @@ spec:
               mountPath: /tmp
             - name: cache
               mountPath: /home/hermes/.cache
+            # XDG state dir. The hardened systemd unit listed this explicitly:
+            #   ReadWritePaths=/home/backbone/.hermes /home/backbone/.local /home/backbone/.cache
+            # I carried over .hermes and .cache and dropped .local, and the
+            # gateway hit `OSError: [Errno 30] Read-only file system:
+            # '/home/hermes/.local'` on a real cluster. The source unit named
+            # every path required; the mapping just had to be complete.
+            - name: xdg-state
+              mountPath: /home/hermes/.local
           resources:
             {{- toYaml .Values.gateway.dashboard.resources | nindent 12 }}
           livenessProbe:
@@ -270,6 +286,9 @@ spec:
         - name: cache
           emptyDir:
             sizeLimit: 1Gi
+        - name: xdg-state
+          emptyDir:
+            sizeLimit: 256Mi
       terminationGracePeriodSeconds: {{ .Values.gateway.terminationGracePeriodSeconds }}
 ---
 apiVersion: v1
