@@ -1,0 +1,20 @@
+# Never commit real secrets. Sealed secrets (*.sealed.yaml) ARE safe to commit;
+# the plaintext inputs used to produce them are not.
+*.plain.yaml
+*.plain.json
+secrets/*.env
+.env
+.env.*
+!.env.example
+
+# Local tooling
+bin/
+node_modules/
+dist/
+*.tgz
+charts/**/charts/
+charts/**/Chart.lock
+
+# Editor / OS
+.DS_Store
+*.swp
