@@ -100,3 +100,43 @@ $ grep -rlP '\x00' --include='*.ts' --include='*.json' --include='*.md' .
 
 **Kept as a lesson.** "The edit tool can't find a string that is visibly there" means the bytes
 differ from what is rendered. Check `repr()`, don't re-read.
+
+## 2026-07-25 — healthcheck reported a container healthy that was never started
+
+**Symptom.** `scripts/healthcheck.sh` was run against a stack where only `notify-mcp` was
+running. It correctly failed on ntfy, and then reported:
+
+```
+  ok    hermes-gateway webhook port accepting connections
+```
+
+The gateway image has never been built. There was no gateway container. Nothing should have
+answered.
+
+**What I thought.** A bug in the conditional — that `curl -sS -o /dev/null` was returning 0
+even on a failed connection, the way it does on an HTTP 404 without `-f`.
+
+**What it actually was.** Worse, and more interesting. Something *did* answer. The check
+defaults to `http://127.0.0.1:8645`, and the Phase 0 audit recorded the **live production
+gateway** bound to `0.0.0.0:8645` on this same host. The healthcheck for the containerized
+stack had reached across and probed the running system it is meant to replace, and reported
+that as the container being healthy.
+
+This is the most dangerous class of false positive: a check that is green for the wrong
+reason. On a cutover day it would report the new stack up while the old one was serving every
+request.
+
+**Fix, two parts.**
+
+1. Compose host-port bindings moved off the live droplet's ports entirely
+   (`18080`, `18081`, `18645` instead of `8080`, `8081`, `8645`). This is not just collision
+   avoidance — during Phase 6 cutover both stacks have to run side by side on purpose, so
+   they must never contend for a port.
+2. The gateway check no longer treats "something accepted a TCP connection" as a pass. It
+   requires a response the containerized gateway can be distinguished by, and reports
+   `skip` rather than `ok` when it cannot tell.
+
+**Kept as a lesson.** A liveness check that only proves *a* process is listening proves
+nothing about *which* process. Every port-based check in this repo now either asserts on
+response content or degrades to `skip`. Same failure shape as the transport bug two entries
+up: a green check that was not testing what it claimed to test.
