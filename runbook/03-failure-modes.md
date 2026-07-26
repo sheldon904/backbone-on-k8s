@@ -4,9 +4,9 @@ Every failure below **happened** during the 2026-07-25 reference install, in thi
 are hypothetical. Narrative versions, including the wrong hypotheses, are in
 [`docs/OPERATIONS.md`](../docs/OPERATIONS.md).
 
-The common thread is worth stating once: **five of the six presented as healthy.** Pods
-`Running`, probes passing, `helm status: deployed`. Only a test that asserted the *specific*
-behaviour caught them.
+The common thread is worth stating once: **most of them presented as healthy.** Pods `Running`,
+probes passing, `helm status: deployed`, a cron ticker beating on time. Only a test that
+asserted the *specific* behaviour caught them.
 
 ---
 

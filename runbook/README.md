@@ -8,7 +8,7 @@ on 2026-07-25, not from intent. Every command here was run; every failure in
 |---|---|
 | [`01-prerequisites.md`](./01-prerequisites.md) | Host sizing, why 8 GB, why Cilium instead of the k3s default, what you must have before starting |
 | [`02-install.md`](./02-install.md) | The full procedure, start to a working cluster |
-| [`03-failure-modes.md`](./03-failure-modes.md) | Six failures hit during the reference install, with symptom → cause → fix |
+| [`03-failure-modes.md`](./03-failure-modes.md) | **10 failures** hit during the reference install, with symptom → cause → fix |
 | [`04-rollback.md`](./04-rollback.md) | Backing out a release, backing out a single control, restoring state |
 | [`05-teardown.md`](./05-teardown.md) | Destroying the cluster without destroying the evidence |
 

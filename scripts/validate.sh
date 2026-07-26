@@ -64,6 +64,9 @@ done
 section "chart matches the plain manifests on the properties that matter"
 ./scripts/parity-check.sh
 
+section "docs: stated counts match reality"
+./scripts/check-counts.sh
+
 section "shell: syntax"
 find scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
 echo "ok"

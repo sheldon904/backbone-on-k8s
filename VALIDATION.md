@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. **38 verified locally, 8 in CI, 33 on a live cluster, 5 still open.**
+Last updated: 2026-07-25. **38 verified locally, 8 in CI, 34 on a live cluster, 5 still open.**
 
 ---
 
