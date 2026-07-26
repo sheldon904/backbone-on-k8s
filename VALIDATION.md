@@ -78,10 +78,15 @@ not. Rows below are from run
 | CI7 | Chart renders on Kubernetes 1.29 / 1.30 / 1.31 / 1.32 | `manifests` | all four valid |
 | **CI8** | **The hermes-gateway image builds** | `images` | **built** — `applying 0001-cron-memory-opt-in.patch` → `Checking patch cron/scheduler.py...` → image `365,353,842 bytes, user: 10001:10001`. Took two runs; the first failed on a wrong upstream ref (docs/OPERATIONS.md) |
 
-## 2b. Verified on a live cluster — 2026-07-25
+## 2b. Verified on a live cluster — 2026-07-25/26
+
+> **The cluster was destroyed on 2026-07-26 after validation.** Every row below was captured
+> while it ran; raw output is in [`evidence/`](evidence/). Nothing here can be re-run without
+> rebuilding from [`runbook/02-install.md`](runbook/02-install.md), which is the honest cost of
+> a validate-then-teardown approach and is stated rather than left implied.
 
 k3s v1.36.2 + **Cilium 1.16.5** (flannel disabled — it cannot enforce NetworkPolicy) on an
-8 GB droplet. Raw output in [`evidence/2026-07-25/`](evidence/2026-07-25/).
+8 GB DigitalOcean droplet, ~$5 total. Raw output in [`evidence/`](evidence/).
 
 | # | Claim | Result |
 |---|---|---|
