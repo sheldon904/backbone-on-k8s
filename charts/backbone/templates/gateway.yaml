@@ -94,6 +94,14 @@ spec:
         # Rather than patch a dozen scripts, provide the path they expect. This
         # is an initContainer and not a Dockerfile RUN because ~/.hermes is a
         # mounted PVC: anything baked into the image is masked by the mount.
+        #
+        # WRAPPER SCRIPTS, NOT SYMLINKS. A symlink to /opt/venv/bin/python makes
+        # Python compute sys.prefix from the SYMLINK path: PEP 405 looks for
+        # pyvenv.cfg next to the invoked executable, finds none, and silently
+        # falls back to the system interpreter --
+        #   sys.prefix = /usr/local, and every venv package vanishes.
+        # The symptom is ModuleNotFoundError for a package that pip lists as
+        # installed. A wrapper that execs the real path has no such ambiguity.
         # docs/OPERATIONS.md, 2026-07-26.
         - name: venv-shim
           image: {{ include "backbone.image" (list . .Values.gateway.image) }}
@@ -103,11 +111,16 @@ spec:
             - -c
             - |
               set -e
-              mkdir -p /home/hermes/.hermes/hermes-agent/venv/bin
-              ln -sf /opt/venv/bin/python  /home/hermes/.hermes/hermes-agent/venv/bin/python
-              ln -sf /opt/venv/bin/python  /home/hermes/.hermes/hermes-agent/venv/bin/python3
-              ln -sf /opt/venv/bin/hermes  /home/hermes/.hermes/hermes-agent/venv/bin/hermes
-              echo "venv shim ready: $(ls -l /home/hermes/.hermes/hermes-agent/venv/bin/python3)"
+              BIN=/home/hermes/.hermes/hermes-agent/venv/bin
+              mkdir -p "$BIN"
+              for n in python python3 hermes; do
+                real=/opt/venv/bin/$n
+                printf '#!/bin/sh\nexec %s "$@"\n' "$real" > "$BIN/$n"
+                chmod 755 "$BIN/$n"
+              done
+              # Prove the shim reaches the venv, not the system interpreter.
+              "$BIN/python3" -c "import sys, sqlite_vec; \
+                print('venv shim OK: prefix=' + sys.prefix + ', sqlite_vec importable')"
           securityContext:
             {{- include "backbone.containerSecurityContext" dict | nindent 12 }}
           volumeMounts:
