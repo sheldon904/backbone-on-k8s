@@ -199,3 +199,119 @@ kubectl -n backbone delete pod backbone-ntfy-0     # auth is read at startup
 ```
 
 The pod restart matters — granting access without it leaves the running process on stale auth.
+
+---
+
+## F11 — oauth2-proxy CrashLoops on OIDC discovery
+
+**Symptom.**
+```
+Failed to initialise OAuth2 Proxy: ... dial tcp 10.43.59.154:8080: i/o timeout
+```
+
+**Cause.** Keycloak is a ClusterIP in `10.43.0.0/16` — inside the `10.0.0.0/8` the
+external-egress rule excludes. Enabling `sso.enabled` is not sufficient; the path to the IdP
+needs its own egress policy.
+
+**Fix.** Rule 5b in `networkpolicy.yaml`, gated on `sso.enabled`. **It only takes effect on the
+next `helm upgrade`**, so the first rollout after enabling SSO will still fail.
+
+---
+
+## F12 — Keycloak returns HTTP 400 on the authorization request
+
+**Cause.** oauth2-proxy *derives* its callback from the request host and forces `https` whenever
+`--cookie-secure=true`. It sent `https://127.0.0.1:4180/oauth2/callback` at a plain-http
+listener, and no registered redirect URI matched.
+
+**Fix.** Set `sso.redirectUrl` explicitly and register the identical string on the client. Do
+not try to guess what host it will pick.
+
+---
+
+## F13 — the OIDC callback returns 403, `CSRF cookie not found`
+
+**Symptom.** `initialize` works, the login form renders, Keycloak issues an authorization
+code — then the callback 403s with:
+```
+CSRF cookie with name '_oauth2_proxy_csrf' was not found
+```
+
+**Cause. This is not a bug.** The CSRF cookie is set `Secure`, so no client sends it back over
+plain http. It was issued at step 1 and dropped by step 4. `--cookie-secure=true` is preventing
+a session from being established over an insecure transport, which is its entire purpose.
+
+**Fix.** Terminate TLS in front of oauth2-proxy. For an in-cluster verification only,
+`sso.cookieSecure=false` exercises the flow — the value exists for that and defaults to `true`.
+Capture both states: a login that is *correctly refused* is as much evidence as one that
+succeeds.
+
+---
+
+## F14 — every cron job fails while the scheduler reports perfect health
+
+**The most misleading failure in this list.** Ticker heartbeat current to the second,
+`ticker_last_success` equal to it, `hermes cron status` reporting "3 active job(s)". Zero jobs
+had ever run. Four separate causes, in the order they surface:
+
+**14a — the scripts were never transferred.** `Script not found: .../scripts/memory-ingest.sh`.
+The job *table* comes across in a state restore; the scripts it points at do not.
+
+**14b — the scripts hardcode the source install layout.**
+```sh
+PY="$HERMES_HOME/hermes-agent/venv/bin/python3"
+```
+The container's interpreter is at `/opt/venv`. Fixed with a shim — as an **initContainer**, not
+a Dockerfile `RUN`, because `~/.hermes` is a mounted PVC and anything baked into the image is
+masked by the mount.
+
+**14c — the shim cannot be a symlink.**
+```
+via /opt/venv/bin/python                        -> prefix=/opt/venv,  sqlite_vec OK
+via .../hermes-agent/venv/bin/python3 (symlink) -> prefix=/usr/local, ModuleNotFoundError
+```
+PEP 405 resolves `sys.prefix` from the **invoked** path: Python looks for `pyvenv.cfg` beside
+the executable it was called as, finds none next to the symlink, and silently falls back to the
+system interpreter. The symptom is `ModuleNotFoundError` for a package `pip list` shows as
+installed. Use wrapper scripts that `exec` the real binary, and have the initContainer *assert*
+the shim reaches the venv so a regression fails pod start instead of every cron job silently.
+
+**14d — `>` follows a stale symlink.** Writing the wrapper failed with
+`Read-only file system` naming a path plainly on a writable PVC — an earlier symlink was still
+there and redirection followed it to `/opt/venv/bin/python` on the read-only root. `rm -f`
+first.
+
+**Also:** the memory plugin's deps (`sqlite_vec`, `numpy`, `networkx`) are in no upstream extra.
+Bake them into the image.
+
+**Verify by reading the per-run output file**, never the exit code:
+```bash
+kubectl -n backbone exec deploy/backbone-gateway -c gateway -- sh -c \
+  'cat "$(ls -t /home/hermes/.hermes/cron/output/*/* | head -1)"'
+```
+
+---
+
+## F15 — metrics exist, are scraped, and are unqueryable
+
+Three at once, none of which produced an error — all produced *absence*.
+
+**15a — `job` is a reserved Prometheus label.** `backbone_workflow_runs_total{job="gmail-intake"}`
+returned no data while the exporter plainly emitted it: the scrape config **overwrites** `job`
+with the scrape job name, collapsing every series into `{job="backbone-exporter"}`. Never use
+`job` as your own label.
+
+**15b — a target read `health=down` while perfectly healthy.** notify-mcp had no scrape allow
+rule; the exporter did. Prometheus could not reach it, so every notify panel would have been
+blank — reading as "the service is broken" rather than "monitoring cannot see it".
+
+**15c — `sum(a) / b` yields an empty vector.** `sum()` strips labels, the right side keeps
+`instance`/`pod`/`job`, the vector match finds nothing. Not an error: an empty result, which
+renders as a dash. Use `sum()` on both sides.
+
+**Plus:** `ruleSelectorNilUsesHelmValues` and `serviceMonitorSelectorNilUsesHelmValues` default
+to **true**, so the operator ignores anything not carrying its own release label. Zero rules
+loaded, silently.
+
+**Prevention.** Query every metric by name and assert a value comes back. A blank panel and a
+healthy-idle panel look identical.

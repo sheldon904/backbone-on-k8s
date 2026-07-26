@@ -230,7 +230,152 @@ kubectl -n backbone exec backbone-ntfy-0 -- ntfy access '*' '<topic>' write-only
 kubectl -n backbone delete pod backbone-ntfy-0     # reload auth
 ```
 
-## Step 11 — Capture evidence
+## Step 12 — Keycloak + oauth2-proxy (SSO)
+
+Keycloak lives in its own `identity` namespace: the IdP is cluster infrastructure, and
+uninstalling Backbone should not take the realm with it.
+
+```bash
+kubectl apply -f platform/keycloak/keycloak.yaml
+kubectl -n identity create secret generic keycloak-secrets \
+  --from-literal=admin-password="$(openssl rand -hex 20)" \
+  --from-literal=db-password="$(openssl rand -hex 20)"
+kubectl -n identity rollout status deploy/keycloak --timeout=420s   # JVM + schema migration
+```
+
+Bootstrap the realm, client and user. Keycloak's image has **no curl**, so use `kcadm.sh`:
+
+```bash
+KC=$(kubectl -n identity get pod -l app.kubernetes.io/name=keycloak -o jsonpath='{.items[0].metadata.name}')
+PW=$(kubectl -n identity get secret keycloak-secrets -o jsonpath='{.data.admin-password}' | base64 -d)
+k(){ kubectl -n identity exec "$KC" -- /opt/keycloak/bin/kcadm.sh "$@"; }
+
+k config credentials --server http://localhost:8080 --realm master --user admin --password "$PW"
+k create realms -s realm=backbone -s enabled=true
+k create clients -r backbone \
+  -s clientId=backbone-dashboard -s enabled=true -s protocol=openid-connect \
+  -s publicClient=false -s standardFlowEnabled=true \
+  -s "secret=$(openssl rand -hex 24)" \
+  -s 'redirectUris=["http://127.0.0.1:4180/oauth2/callback","https://*/oauth2/callback"]'
+k create users -r backbone -s username=<you> -s enabled=true \
+  -s email=<you@example.com> -s emailVerified=true
+k set-password -r backbone --username <you> --new-password '<password>'
+
+# retrieve the client secret you just set
+CID=$(k get clients -r backbone -q clientId=backbone-dashboard --fields id --format csv --noquotes | tr -d '\r')
+SECRET=$(k get "clients/$CID/client-secret" -r backbone | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')
+```
+
+oauth2-proxy runs as a **sidecar in the gateway pod** — the dashboard binds pod-loopback, so the
+sidecar is structurally the only path to it:
+
+```bash
+kubectl -n backbone create secret generic oauth2-proxy-secrets \
+  --from-literal=client-secret="$SECRET" \
+  --from-literal=cookie-secret="$(openssl rand -base64 32 | head -c 32)"   # exactly 32 bytes
+
+helm upgrade backbone charts/backbone -n backbone --reuse-values \
+  --set sso.enabled=true \
+  --set sso.issuerUrl=http://keycloak.identity.svc.cluster.local:8080/realms/backbone \
+  --set sso.redirectUrl=http://127.0.0.1:4180/oauth2/callback
+```
+
+> **Three things will bite here, in this order.** The sidecar cannot reach Keycloak until the
+> egress rule exists (`sso.enabled` adds it, but only on the *next* upgrade). `--redirect-url`
+> must be set explicitly or oauth2-proxy derives one nothing has registered. And with
+> `--cookie-secure=true` on a plain-http listener the callback fails at
+> `CSRF cookie '_oauth2_proxy_csrf' was not found` — which is the control working.
+> Full detail in [`03-failure-modes.md`](./03-failure-modes.md) F11–F13.
+
+## Step 13 — Make the scheduled workflows actually run
+
+**The job table restores without the machinery to execute it.** Expect every job to fail while
+the scheduler reports itself perfectly healthy.
+
+```bash
+# 1. the job scripts are NOT part of the state snapshot
+tar czf scripts.tgz --exclude=__pycache__ --exclude='*.log' -C ~/.hermes scripts/
+kubectl cp scripts.tgz backbone/$POD:/home/hermes/.hermes/scripts.tgz -c gateway
+kubectl -n backbone exec $POD -c gateway -- sh -c 'cd /home/hermes/.hermes && tar xzf scripts.tgz && rm scripts.tgz'
+```
+
+Scan that bundle for credentials first. The three internal memory jobs make zero external calls;
+anything touching Google or a backup repo should stay on the source system.
+
+```bash
+# 2. the venv shim (the initContainer does this automatically -- see F14)
+# 3. the memory plugin's deps are baked into the image: sqlite-vec, numpy, networkx
+
+# 4. trigger a run and READ THE OUTPUT FILE, not the exit code
+kubectl -n backbone exec deploy/backbone-gateway -c gateway -- hermes cron run memory-feedback
+kubectl -n backbone exec deploy/backbone-gateway -c gateway -- sh -c \
+  'cat "$(ls -t /home/hermes/.hermes/cron/output/*/* | head -1)"'
+```
+
+Expect `Ran now: succeeded.` and real work in the log — trust demotions with fact IDs, not an
+empty run.
+
+**Decide which jobs run here.** The rule is *a workflow runs on exactly one side*. Disable
+anything with an external side effect on whichever side is not authoritative:
+
+```bash
+kubectl -n backbone scale deploy/backbone-gateway --replicas=0   # never edit under a live scheduler
+# ...edit cron/jobs.json via a helper pod, set enabled=false...
+kubectl -n backbone scale deploy/backbone-gateway --replicas=1
+```
+
+## Step 14 — Monitoring
+
+```bash
+kubectl create namespace monitoring
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts && helm repo update
+helm upgrade --install kps prometheus-community/kube-prometheus-stack -n monitoring \
+  --set grafana.adminPassword="$(openssl rand -hex 16)" \
+  --set grafana.persistence.enabled=false \
+  --set prometheus.prometheusSpec.retention=7d \
+  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+  --set prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false \
+  --set alertmanager.enabled=false --wait --timeout 15m
+
+helm upgrade backbone charts/backbone -n backbone --reuse-values \
+  --set monitoring.serviceMonitor.enabled=true \
+  --set monitoring.prometheusRule.enabled=true \
+  --set monitoring.namespace=monitoring \
+  --set exporter.enabled=true
+```
+
+Both `…SelectorNilUsesHelmValues=false` flags matter: without them the operator only picks up
+ServiceMonitors and rules carrying its own release label, and yours are silently ignored.
+
+Import the dashboard, resolving the datasource placeholder:
+
+```bash
+kubectl -n monitoring port-forward svc/kps-grafana 3000:80 &
+DSUID=$(curl -sS -u admin:$PW http://127.0.0.1:3000/api/datasources | jq -r '.[]|select(.type=="prometheus")|.uid')
+python3 -c "
+import json,sys
+d=json.load(open('observability/grafana-dashboard.json')); d.pop('__inputs',None)
+d=json.loads(json.dumps(d).replace('\${DS_PROMETHEUS}','$DSUID'))
+d['templating']['list']=[t for t in d['templating']['list'] if t.get('type')!='datasource']
+d.pop('id',None); d['uid']='backbone-k8s'
+print(json.dumps({'dashboard':d,'overwrite':True}))" > dash.json
+curl -sS -u admin:$PW -H 'Content-Type: application/json' -X POST \
+  http://127.0.0.1:3000/api/dashboards/db -d @dash.json
+```
+
+**Verify by querying each metric by name**, not by looking at the dashboard. A blank panel and a
+healthy-idle panel are identical:
+
+```bash
+kubectl -n monitoring port-forward svc/kps-kube-prometheus-stack-prometheus 9090:9090 &
+q(){ curl -sS --get --data-urlencode "query=$1" http://127.0.0.1:9090/api/v1/query | jq -r '.data.result[0].value[1] // "NO DATA"'; }
+q 'sum(backbone_cost_usd_total) / clamp_min(sum(backbone_sessions_total),1)'   # cost per task
+q 'backbone_workflow_runs_total{workflow="memory-feedback"}'                    # NOT job= -- reserved
+q 'backbone_recall_latency_seconds_sum / backbone_recall_latency_seconds_count'
+curl -sS 'http://127.0.0.1:9090/api/v1/targets?state=active' | jq -r '.data.activeTargets[]|select(.labels.job|test("backbone"))|"\(.labels.job) \(.health)"'
+```
+
+## Step 15 — Capture evidence
 
 Especially if the cluster is temporary. An uncaptured deployment that has been destroyed is
 indistinguishable from one that never happened.
