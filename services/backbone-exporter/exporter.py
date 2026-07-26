@@ -44,6 +44,18 @@ PROBE_QUERY = os.environ.get("PROBE_QUERY", "backbone")
 LATENCY_BUCKETS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5]
 
 
+def _readable(p: Path) -> bool:
+    """`Path.exists()` RAISES PermissionError when a parent directory is not
+    traversable -- it does not return False. The gateway's state dirs are mode
+    0700 and owned by a different uid, so an unguarded exists() check on
+    /state/cron/jobs.json takes down the whole /metrics response. Observed
+    2026-07-26; see docs/OPERATIONS.md."""
+    try:
+        return p.exists()
+    except OSError:
+        return False
+
+
 def _ro(db: Path) -> sqlite3.Connection:
     """Read-only handle. The gateway is a live writer on these files."""
     return sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
@@ -70,7 +82,7 @@ class Probe:
 
     def run_once(self) -> None:
         db = STATE_DIR / "memory_store.db"
-        if not db.exists():
+        if not _readable(db):
             with self._lock:
                 self.failures += 1
                 self.last_error = "memory_store.db missing"
@@ -110,7 +122,7 @@ PROBE = Probe()
 
 
 def _scalar(db: Path, sql: str) -> int | None:
-    if not db.exists():
+    if not _readable(db):
         return None
     try:
         conn = _ro(db)
@@ -179,7 +191,7 @@ def collect() -> str:
     metric_emitted = set()
     enabled_lines: list[str] = []
     last_run_lines: list[str] = []
-    if jobs_file.exists():
+    if _readable(jobs_file):
         try:
             payload = json.loads(jobs_file.read_text())
             jobs = payload.get("jobs", payload) if isinstance(payload, dict) else payload
@@ -217,7 +229,7 @@ def collect() -> str:
 
     # --- task runs -----------------------------------------------------------
     metric("backbone_task_runs_total", "counter", "Task runs by terminal status.")
-    if kan.exists():
+    if _readable(kan):
         try:
             conn = _ro(kan)
             try:
@@ -233,8 +245,14 @@ def collect() -> str:
     # --- volume growth -------------------------------------------------------
     # local-path PVCs cannot be expanded online, so this needs weeks of runway.
     metric("backbone_store_bytes", "gauge", "On-disk size of each state store.")
-    for db in sorted(STATE_DIR.glob("*.db")):
-        out.append(f'backbone_store_bytes{{db="{_esc(db.name)}"}} {db.stat().st_size}')
+    try:
+        for db in sorted(STATE_DIR.glob("*.db")):
+            try:
+                out.append(f'backbone_store_bytes{{db="{_esc(db.name)}"}} {db.stat().st_size}')
+            except OSError:
+                continue
+    except OSError:
+        pass
 
     metric("backbone_exporter_up", "gauge", "1 when the exporter served this scrape.")
     out.append("backbone_exporter_up 1")
@@ -262,14 +280,25 @@ class Handler(BaseHTTPRequestHandler):
             # that cannot see the databases should leave the Service rather than
             # serve zeros that look like a healthy idle system.
             mem = STATE_DIR / "memory_store.db"
-            ok = mem.exists()
+            ok = _readable(mem)
             self._send(
                 200 if ok else 503,
                 json.dumps({"ready": ok, "state_dir": str(STATE_DIR),
                             "reason": "ok" if ok else "memory_store.db not readable"}),
             )
         elif path == "/metrics":
-            self._send(200, collect(), "text/plain; version=0.0.4; charset=utf-8")
+            # A metrics endpoint that 500s is worse than one reporting partial
+            # data: Prometheus records the scrape as failed and every panel goes
+            # blank, which reads as "the system is down" rather than "one source
+            # is unreadable". Always answer 200; surface the failure as a metric.
+            try:
+                body = collect()
+            except Exception as exc:  # noqa: BLE001
+                body = ("# HELP backbone_exporter_up 1 when the exporter served this scrape.\n"
+                        "# TYPE backbone_exporter_up gauge\n"
+                        "backbone_exporter_up 0\n"
+                        f"# collect_error: {_esc(str(exc))[:200]}\n")
+            self._send(200, body, "text/plain; version=0.0.4; charset=utf-8")
         else:
             self._send(404, json.dumps({"error": "not found"}))
 

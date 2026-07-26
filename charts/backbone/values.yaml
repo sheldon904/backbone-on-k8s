@@ -172,8 +172,12 @@ exporter:
   # query path, not looking for a particular answer.
   probeQuery: "backbone"
   securityContext:
-    runAsUser: 10002
-    runAsGroup: 10002
+    # SAME uid as the gateway, deliberately. The gateway's state directories are
+    # mode 0700 and owned by 10001; a different uid cannot traverse them, and
+    # /metrics dies on PermissionError. Safe because the mount is readOnly AND
+    # every database is opened with mode=ro -- the uid grants read, nothing else.
+    runAsUser: 10001
+    runAsGroup: 10001
   resources:
     requests: { cpu: 25m, memory: 64Mi }
     limits: { memory: 128Mi }
