@@ -84,6 +84,38 @@ spec:
       {{- with .Values.tolerations }}
       tolerations: {{ toYaml . | nindent 8 }}
       {{- end }}
+      initContainers:
+        # The scheduler's job scripts hardcode the SOURCE install layout:
+        #   PY="$HERMES_HOME/hermes-agent/venv/bin/python3"
+        # In the container the interpreter lives at /opt/venv, so every cron job
+        # dies with "Script not found" or a missing interpreter -- while the
+        # ticker keeps beating and the job table keeps showing healthy counts.
+        #
+        # Rather than patch a dozen scripts, provide the path they expect. This
+        # is an initContainer and not a Dockerfile RUN because ~/.hermes is a
+        # mounted PVC: anything baked into the image is masked by the mount.
+        # docs/OPERATIONS.md, 2026-07-26.
+        - name: venv-shim
+          image: {{ include "backbone.image" (list . .Values.gateway.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              mkdir -p /home/hermes/.hermes/hermes-agent/venv/bin
+              ln -sf /opt/venv/bin/python  /home/hermes/.hermes/hermes-agent/venv/bin/python
+              ln -sf /opt/venv/bin/python  /home/hermes/.hermes/hermes-agent/venv/bin/python3
+              ln -sf /opt/venv/bin/hermes  /home/hermes/.hermes/hermes-agent/venv/bin/hermes
+              echo "venv shim ready: $(ls -l /home/hermes/.hermes/hermes-agent/venv/bin/python3)"
+          securityContext:
+            {{- include "backbone.containerSecurityContext" dict | nindent 12 }}
+          volumeMounts:
+            - name: state
+              mountPath: /home/hermes/.hermes
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 64Mi }
       containers:
         - name: gateway
           image: {{ include "backbone.image" (list . .Values.gateway.image) }}
