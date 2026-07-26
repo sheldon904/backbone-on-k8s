@@ -122,7 +122,7 @@ These are unproven. No document in this repo may state them as fact.
 
 | # | Claim | Blocked on |
 |---|---|---|
-| C8 | Daily workflows run on the cluster for 7 consecutive days | Phase 6, the actual point of the project |
+| C8 | Daily workflows run on the cluster for 7 consecutive days | **A self-imposed target from the original build spec, not a claim made anywhere outward-facing.** Elapsed time cannot be simulated: this is a durability claim (log rotation, cert renewal, leak accumulation, an unattended reboot), and replaying historical data compresses the input, not the clock. Open, and open honestly |
 | C14 | `config.yaml` is assembled at startup from ConfigMap + Secret | **not implemented.** hermes-agent reads one config.yaml; an init container or startup wrapper has to compose it. A real gap, not a detail — docs/04-SECRETS.md §3 |
 | C15 | Langfuse actually receives a trace | the plugin and the env names are now confirmed (L31); whether traces arrive needs a running gateway plus a Langfuse instance |
 | C17 | Sealed-secrets key rotation | the controller supports it; nothing in this repo drives it |
@@ -139,6 +139,25 @@ These are unproven. No document in this repo may state them as fact.
 
 Helm and kubeconform are static single binaries with no daemon, so those **can** be run here and
 their results appear in section 1 as they are produced.
+
+## 4b. What the seven-day target is, and is not
+
+`gaps.txt` — the original planning document — set:
+
+> `DONE WHEN: Your actual daily workflows run on the cluster for one week`
+
+That target is **self-imposed**. It appears in the build spec and in no outward-facing
+description of this project. What *is* described outward-facing is "my actual daily workflows
+running on the cluster", present tense — which K29 establishes: `memory-feedback` executed on
+this cluster and applied five trust demotions to real facts in the real memory store.
+
+The distinction matters because the two are often conflated. *A workflow runs here* is a claim
+about capability and is now evidenced. *It has run here for a week* is a claim about durability
+and cannot be manufactured — not from a backup, not from replayed history, not from a restored
+counter. Only from a week.
+
+C8 stays open rather than being quietly retired, because the build spec asked for it and it has
+not been done.
 
 ## 5. Deviation from the original brief
 

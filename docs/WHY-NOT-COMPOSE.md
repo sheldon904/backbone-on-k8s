@@ -111,6 +111,11 @@ known, rather than reverse-engineered from whatever happened.
    week, that is itself the finding — and it argues *against* the migration, which is a
    conclusion this project has to be willing to reach.
 
+   As of 2026-07-26 this has **not** been run, and the answer is genuinely unknown. Thirteen
+   incidents were logged in the first day of *building* it; whether a steady week produces
+   thirteen more or zero is the question, and guessing at it here would defeat the point of the
+   document.
+
 ## What exists instead, right now
 
 Three entries in [`OPERATIONS.md`](./OPERATIONS.md), all from *building* the artifacts rather
