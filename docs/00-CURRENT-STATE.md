@@ -348,10 +348,11 @@ under concurrent memory writes. Both would surface weeks later, attributed to Ku
 **How it was missed.** §9 was built from `git remote -v`, `git log --oneline -3` and
 `hermes --version`. I never ran `git status`. One command, and it was the one that mattered.
 
-Only the first is vendored so far, at
-`services/hermes-gateway/patches/0001-cron-memory-opt-in.patch`, applied at build time in a way
-that **fails the build** if it stops applying. **The other two are not yet vendored** — that is
-tracked as [`VALIDATION.md`](../VALIDATION.md) row C19 and is an open gap, not a decision.
+**RESOLVED 2026-07-26.** All three are now vendored in
+`services/hermes-gateway/patches/`, and applying them to a clean `v2026.7.1` clone produces
+files that are **byte-identical** to this checkout — sha256 recorded in
+`patches/EXPECTED-SHA256`, asserted during the image build, and re-checked by CI via
+`scripts/verify-upstream-parity.sh`.
 
 A further caution: these are *uncommitted working-tree changes* on a checkout that a
 `hermes update` will overwrite. The `store.py.bak-txnleak-20260725` file sitting next to one of

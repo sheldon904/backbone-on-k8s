@@ -711,3 +711,55 @@ failure was written to a per-run output file that nothing surfaces. **A schedule
 it is running is telling you about the ticker, not about the work.** The metric that would have
 caught this on day one is `backbone_workflow_last_run_timestamp_seconds` going stale — which is
 why it is now a dashboard panel rather than only a counter.
+
+## 2026-07-26 — C19: the image now reproduces the running system, and proves it
+
+The Phase 0 audit recorded that the running hermes-agent checkout carries local modifications,
+then §12 corrected that from one file to three. Only the first was vendored. Closing the gap.
+
+**All three patches generated from the live checkout and verified against a pristine clone:**
+
+```
+0001-cron-memory-opt-in.patch              applied
+0002-holographic-store-rollback.patch      applied
+0003-memory-tool-archival-overflow.patch   applied
+```
+
+**Then the part that actually matters** — comparing the patched tree to the running system
+file by file:
+
+```
+cron/scheduler.py                     patched=7be0c94690816bf6  live=7be0c94690816bf6  MATCH
+plugins/memory/holographic/store.py   patched=d084dc49e50a5b6e  live=d084dc49e50a5b6e  MATCH
+tools/memory_tool.py                  patched=2efe961da6a1fe17  live=2efe961da6a1fe17  MATCH
+```
+
+Byte-identical. The image reproduces the running system, not merely the pinned version.
+
+**Why applying was not enough.** `git apply` succeeding proves the hunks found somewhere to
+land. It does not prove they landed where they used to: if upstream moves a nearby line, a
+patch can still apply and produce a different file. So the SHA256 of each patched file is
+recorded in `patches/EXPECTED-SHA256`, the **Dockerfile asserts it during the build**, and CI
+runs `scripts/verify-upstream-parity.sh` — which needs no access to the live host, so it keeps
+working after this cluster is gone.
+
+Confirmed inside the running container rather than trusting the build:
+
+```
+cron skip_memory opt-in          PRESENT
+holographic txn rollback         PRESENT
+memory_tool overflow hook        PRESENT
+```
+
+**The one that mattered most.** `0002` is a bug fix, not a preference. Without it, the
+duplicate-content path returns early from a failed INSERT that has already opened a deferred
+write transaction — stranding it open on a long-lived connection and locking every other writer
+out of `memory_store.db` until the process exits. An image built from pristine upstream
+reintroduces that, and it surfaces as intermittent "database is locked" under concurrent memory
+writes: rare, load-dependent, and very hard to attribute to a containerization decision made
+weeks earlier.
+
+**Kept as a lesson.** "Pin the version" is not the same as "reproduce the system." The pinned
+tag was correct the whole time; what was missing was three uncommitted files that no version
+number describes. Anywhere a vendored checkout is the source of truth, `git status` belongs in
+the audit next to `git log` — which is exactly the correction §12 had to make.
