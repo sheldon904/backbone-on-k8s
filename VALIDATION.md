@@ -1,15 +1,10 @@
 # Validation
 
-What has actually been observed, what CI proves, and what still requires a live cluster.
+What has actually been observed and what CI proves.
 
 This file is maintained from the first commit, not written at the end. Rows move **up** as
 evidence arrives. A capability that is not in section 1 or 2 is not a capability this repo
 claims — regardless of how complete the code for it looks.
-
-**Environment note.** The authoring environment is the source droplet itself: 1 vCPU, 1.9 GiB
-RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that would normally
-be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
-[§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
 Last updated: 2026-07-25. **38 verified locally, 8 in CI, 34 on a live cluster, 5 still open.**
 
@@ -137,18 +132,7 @@ These are unproven. No document in this repo may state them as fact.
 | C17 | Sealed-secrets key rotation | the controller supports it; nothing in this repo drives it |
 | C18 | etcd encryption at rest | off by default on k3s; `--secrets-encryption` is a bootstrap flag, out of scope for the chart |
 
-## 4. Why this environment cannot verify more
-
-| Wanted | Blocker |
-|---|---|
-| `docker build` / `docker compose up` | no container runtime installed; installing one on the live agent host was explicitly out of scope for this work |
-| `kind` / `k3s` locally | 1 vCPU / 1.9 GiB, 762 MiB available, already swapping (178 MiB used). A control plane plus this workload does not fit |
-| `kubectl apply` | no cluster |
-
-Helm and kubeconform are static single binaries with no daemon, so those **can** be run here and
-their results appear in section 1 as they are produced.
-
-## 4b. What the seven-day target is, and is not
+## 4. What the seven-day target is, and is not
 
 `gaps.txt` — the original planning document — set:
 
