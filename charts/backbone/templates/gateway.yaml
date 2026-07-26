@@ -114,8 +114,12 @@ spec:
               BIN=/home/hermes/.hermes/hermes-agent/venv/bin
               mkdir -p "$BIN"
               for n in python python3 hermes; do
-                real=/opt/venv/bin/$n
-                printf '#!/bin/sh\nexec %s "$@"\n' "$real" > "$BIN/$n"
+                # rm FIRST. If a previous run left a symlink here, `>` follows it
+                # to /opt/venv/bin/$n on the read-only root filesystem and fails
+                # with a "Read-only file system" error pointing at a path that is
+                # plainly on a writable PVC.
+                rm -f "$BIN/$n"
+                printf '#!/bin/sh\nexec /opt/venv/bin/%s "$@"\n' "$n" > "$BIN/$n"
                 chmod 755 "$BIN/$n"
               done
               # Prove the shim reaches the venv, not the system interpreter.
