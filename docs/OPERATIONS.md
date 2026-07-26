@@ -485,3 +485,52 @@ dashboard is never served without a session.
 **Caveat, stated.** Keycloak runs `start-dev`, which disables hostname strictness and the HTTPS
 requirement. The OIDC protocol flow is identical — same code exchange, same JWKS verification —
 but this is not a production IdP deployment and the manifest says so inline.
+
+## 2026-07-26 — restoring state re-armed the split-brain I had spent the day avoiding
+
+**Symptom.** After restoring the real state bundle into the cluster PVC, the cluster gateway's
+scheduler came up with **eight enabled cron jobs**:
+
+```
+ENABLED: gmail-intake        every 30m   next 2026-07-26T00:24:12
+ENABLED: hermes-backup       0 7 * * *   next 2026-07-26T07:00:00
+ENABLED: svn-monthly-report  0 13 1 * *  next 2026-08-01T13:00:00   <-- CLIENT-FACING
+ENABLED: memory-ingest       every 15m
+...
+```
+
+**What I thought.** Nothing, initially — and that is the finding. I had spent the whole
+migration carefully guarding against exactly this: separate Telegram bot, `PHOTON_*` blanked,
+`GITHUB_BACKUP_REPO_URL` blanked, and an explicit rule that *a workflow runs on exactly one
+side, never both.* Then I restored `cron/jobs.json` as part of "operate it with the real
+historical data" and **handed the cluster the entire job table**, re-arming every collision in
+one `tar xzf`.
+
+`svn-monthly-report` fires 13:00 UTC on the 1st. With both stacks live that is a real client
+receiving the same GA4 report twice.
+
+**Why the guards did not catch it.** They were all applied to the *secret* — env vars I
+rewrote at seal time. The job table is *state*, and it came in through a completely different
+door. I had reasoned carefully about one channel and not noticed the other existed.
+
+**Fix.** Scale the gateway to 0 (never edit the job table under a live scheduler), disable
+every job with an external side effect, restart:
+
+```
+disabled  calendar-sync, hermes-backup, gmail-intake, svn-monthly-report,
+          ticket-factory-daily, AC Vinegar Reminder, ontology-review-nudge
+ENABLED   memory-consolidate, memory-ingest, memory-feedback
+```
+
+The three that remain write only to the cluster's own copy of the memory store. They are
+genuinely scheduled workflows executing on the cluster, with no path to anything outside it.
+
+**Kept as a lesson.** *Restoring state restores behaviour.* A database is not inert — for an
+agent, the scheduler's job table is executable content, and copying it copies the intent to
+act. The mental model of "secrets are dangerous, data is safe" is wrong for any system that
+stores what it is supposed to do. When migrating an agent, audit the restored **state** for
+triggers with the same care as the credentials.
+
+Also worth noting: `hermes cron disable <name>` returned exit 2 for every job. The CLI's
+syntax differs from what the docs implied, and under time pressure the reliable move was to
+stop the process and edit the file it owns rather than keep guessing at flags.

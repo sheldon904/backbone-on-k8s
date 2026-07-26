@@ -71,6 +71,19 @@ them, and none of them fail loudly:
 The rule that keeps this safe: **a workflow runs on exactly one side.** Decide per job, and
 write down which side owns it.
 
+> **The trap that catches people who did all of the above.** Those four guards are applied to
+> *credentials*. The scheduler's job table is **state**, and restoring it hands the new instance
+> every job you just carefully de-conflicted — through a completely different door. After any
+> state restore, re-check what the scheduler thinks it should run:
+>
+> ```bash
+> kubectl -n backbone exec deploy/backbone-gateway -c gateway -- python -c "
+> import json; d=json.load(open('/home/hermes/.hermes/cron/jobs.json'))
+> [print(j['name'], j.get('enabled')) for j in d['jobs']]"
+> ```
+>
+> Restoring state restores *behaviour*. For an agent, a database is not inert.
+
 ## 5. Data you will need to move
 
 From the source host, snapshotted with SQLite's online backup API — **never `cp`**, the
