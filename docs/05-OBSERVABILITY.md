@@ -46,12 +46,9 @@ Recall latency is **measured, not read**. `recall_log` stores a timestamp and no
 FTS path — it is *not* the same quantity as the five-channel figure in the hybrid-memory
 research, and the panel description says so.
 
-Building panels for the first two would mean building panels that display a constant zero. The
-dashboard ships with **the two that are real**, plus panels for what actually constrains this
-system — and it ships with the other two **defined but disabled**, so that re-wiring the gate
-turns them on rather than requiring them to be invented.
-
-That is the honest version of "instrument the four metrics".
+Building panels for the first two would mean building panels that display a constant zero, so
+they are **not in the dashboard at all**. An earlier revision shipped them hidden-but-defined;
+that was worse — a panel that can never have data is a promise the system cannot keep.
 
 ## 2. What is instrumented, and where it comes from
 
@@ -66,8 +63,14 @@ That is the honest version of "instrument the four metrics".
 | Pod restarts, OOM kills, CPU/memory | kube-state-metrics + cAdvisor | standard, not written here |
 | Volume free space | kubelet volume stats | standard |
 | Cron job success/failure | kube-state-metrics on the CronJobs | standard |
-| Token cost per request | Langfuse | **not implemented** — see §4 |
-| Workflow success rate | hermes-agent | **not implemented** — hermes-agent exposes no Prometheus endpoint |
+| `backbone_recall_latency_seconds` (histogram) | backbone-exporter, **synthetic prober** | **live on cluster** — K20 |
+| `backbone_memory_rows{table}` | backbone-exporter ← `memory_store.db` | **live** — K23 |
+| `backbone_workflow_runs_total{job}` | backbone-exporter ← `cron/jobs.json` | **live** — K21 |
+| `backbone_workflow_last_run_timestamp_seconds{job}` | same | live |
+| `backbone_cost_usd_total{status,source}` | backbone-exporter ← `state.db.sessions` | **live** — K22 |
+| `backbone_tokens_total{kind}` | same | live |
+| `backbone_model_cost_usd_total{model}` | same | live |
+| `backbone_sessions_total` | same | live |
 
 ### The gap, and how it was closed
 
@@ -101,44 +104,44 @@ the system is small:
    Kubernetes does not. Nothing escalates on its own, so the restart-loop alert *is* the
    replacement for that behaviour.
 
-## 4. Langfuse
+## 4. Langfuse — configured, deliberately not deployed
 
-Tracing is wired as configuration (`tracing.enabled` in `values.yaml`), which injects
-`LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` into the gateway.
+`tracing.enabled` injects `HERMES_LANGFUSE_*` into the gateway. Those are the **correct** names:
+hermes-agent ships a bundled plugin at `plugins/observability/langfuse/` that reads the
+`HERMES_`-prefixed variables. An earlier revision of this chart injected `LANGFUSE_HOST` and
+`LANGFUSE_SAMPLE_RATE`, which that plugin ignores entirely — tracing would have silently done
+nothing (VALIDATION L31).
 
-**Whether hermes-agent v0.18.0 reads those variables is UNVERIFIED.** The values are set
-because that is the conventional Langfuse integration; if upstream does not consume them,
-tracing requires a wrapper around the model client and the env vars are inert. Tracked as
-[`VALIDATION.md`](../VALIDATION.md) row C15.
+**It is not deployed, and that is a decision rather than an omission.** Langfuse existed in the
+plan to answer *cost per task*. `state.db.sessions` already answers it — per-session model,
+token breakdown, and cost, across 1,111 sessions — so standing up Langfuse plus a second
+Postgres would add ~700 MB and a service to maintain in exchange for a number the system
+already records.
 
-This is exactly the kind of claim that would otherwise read as "Langfuse tracing: done" in a
-README. It is not done. It is configured, and unconfirmed.
-
-Langfuse also needs its own Postgres — the second consumer, with Keycloak, of the Postgres that
-[`02-STATE-TRADEOFFS.md`](./02-STATE-TRADEOFFS.md) adds for reasons unrelated to Hermes.
+What Langfuse would still add is **per-span tracing** — which tool call in a turn was slow, what
+the model actually saw. That is real value and a real gap; it is simply not the same question as
+cost per task, and this repo no longer claims it. [`VALIDATION.md`](../VALIDATION.md) C15.
 
 ## 5. The dashboard
 
-`observability/grafana-dashboard.json` — importable, 11 panels, no external dependencies beyond
-Prometheus and kube-state-metrics.
+`observability/grafana-dashboard.json` — importable, **21 panels in 5 rows**, no dependencies
+beyond Prometheus, kube-state-metrics and backbone-exporter.
 
 | Row | Panels |
 |---|---|
-| **Availability** | gateway up/down · restarts (30 m) · uptime |
-| **Notifications** | delivery rate by channel · all-channel failure count · p50/p95 fan-out latency |
-| **Resources** | gateway memory vs. limit · state volume free · notify-mcp replicas ready |
-| **Scheduled work** | CronJob last success age · failed job count |
-| **Disabled, awaiting the governance gate** | policy-gate decisions · proposal→approval latency |
+| **Availability** | gateway up/down · restarts (30 m) · notify-mcp replicas · uptime |
+| **Notifications** | delivery by channel · all-channel failures · p50/p95 fan-out latency · tool errors |
+| **Resources** | gateway memory vs. limit · state volume free |
+| **Scheduled work** | CronJob last success age · failed jobs |
+| **Agent — the three metrics the brief named** | recall latency p50/p95 · memory substrate size · workflow runs by job · workflow staleness · **cost per task** · cost by derivation · cost by model · token mix · exporter health |
 
-The last row is present with its queries written and `"hide": true` set, so that if the gate is
-ever re-wired the panels turn on rather than needing to be reinvented. Their titles say
-`(no data — governance gate not wired, see docs/RETENTION.md §5)` so nobody reads an empty
-panel as a healthy zero.
+Every panel has a query and every query has a source. There are no hidden panels.
 
 ## 6. Verification status
 
 | Claim | Status |
 |---|---|
+| Recall latency, workflow success rate and cost per task are all live | **verified on the cluster** — K20, K21, K22 |
 | notify-mcp exposes valid Prometheus exposition | **verified** — L14, and a unit test asserts every line matches the format |
 | The metrics move when the tool is used | **verified** — L14 |
 | The dashboard JSON is valid and every panel has a query | **verified** — L20 |
