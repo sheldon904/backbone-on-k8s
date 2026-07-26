@@ -66,6 +66,10 @@ backbone-on-k8s/
 └── scripts/                     validate.sh, parity-check.sh, healthcheck.sh
 ```
 
+`runbook/` and `evidence/` are the two directories a reviewer should open first: one is the
+procedure written from an install that actually happened, the other is dated raw output from
+the cluster. `docs/OPERATIONS.md` has **14 real incidents**, every one written before the fix.
+
 `manifests/` came before `charts/` on purpose — the brief was to learn the primitives before the
 templating, and the plain objects are kept as the teaching artifact rather than deleted once the
 chart worked. [`scripts/parity-check.sh`](./scripts/parity-check.sh) asserts the 21 properties
@@ -130,10 +134,14 @@ Kubernetes 1.29 through 1.32.
 | **sealed-secrets** round-trips 41 real keys | controller decrypts a committable manifest into a live Secret |
 | `readOnlyRootFilesystem: true` **holds** for the gateway | 0 errors once every path the systemd unit named was mounted |
 | **Cost per task: $0.00767** | 1,111 sessions, $8.52 estimated, from `state.db.sessions` |
-| **Recall latency ~3.8 ms**, 0 probe failures | measured by a prober, not read |
-| Workflow runs | gmail-intake 2,895 · memory-ingest 2,352 |
+| **Recall latency ~3.3 ms**, 0 probe failures | measured by a prober, not read from the app |
+| **A real scheduled workflow executed** | `memory-feedback` applied 5 trust demotions to real facts (`#824 0.44→0.42`) |
+| **Grafana renders 21 panels with live data** | verified through Grafana's own query API |
+| **The image reproduces the running system** | all 3 local upstream patches vendored; patched tree **byte-identical** to the live checkout |
 
-**Still not verified** — seven consecutive days of operation, and per-span tracing.
+**Still not verified** — seven consecutive days (a self-imposed target, not an outward claim),
+per-span tracing, `config.yaml` assembly, sealed-secrets key rotation, etcd encryption. All five
+are listed in [`VALIDATION.md §3`](./VALIDATION.md).
 
 **Every phase gate is unmet.** The original brief required stopping at each gate until I had
 observed something running; this build was directed to produce the full artifact set without

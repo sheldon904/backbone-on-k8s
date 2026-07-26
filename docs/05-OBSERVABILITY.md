@@ -146,6 +146,8 @@ Every panel has a query and every query has a source. There are no hidden panels
 | The metrics move when the tool is used | **verified** — L14 |
 | The dashboard JSON is valid and every panel has a query | **verified** — L20 |
 | PrometheusRule and ServiceMonitor render and validate | **verified** — L18 |
-| Grafana renders the dashboard | **not done** — C7 |
-| The numbers move when the system is used on a cluster | **not done** — C7, the Phase 5 gate |
-| Langfuse receives a trace | **not done** — C15 |
+| Grafana renders the dashboard | **verified** — K26. 21 panels imported at `/d/backbone-k8s` |
+| The numbers are real, queried through Grafana itself | **verified** — cost/task 0.007667, gmail-intake 2895, recall 3.27 ms, facts 1604 |
+| Prometheus scrapes both Backbone targets | **verified** — K27, `backbone-exporter up`, `backbone-notify-mcp up` |
+| The alert rules load | **verified** — K28, 5 rules in `backbone.rules` |
+| Langfuse receives a trace | **not done** — C15, and deliberately: see §4 |

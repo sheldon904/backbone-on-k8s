@@ -146,22 +146,36 @@ sequenceDiagram
 | `--pass-authorization-header` | **false** | Same reasoning |
 | `--set-xauthrequest` | true | Gives the upstream identity headers without giving it a credential |
 | `--skip-provider-button` | true | One provider; the intermediate page is friction with no choice on it |
+| `--redirect-url` | **set explicitly** | Left unset, oauth2-proxy *derives* the callback from the request host and forces `https` whenever `--cookie-secure=true`. Observed: it sent `https://127.0.0.1:4180/oauth2/callback` at an http listener, and Keycloak returned **400** because no registered URI matched. Set it and register the same string |
+
+`sso.cookieSecure` exists as a value and **defaults to true**. It was added only so an
+in-cluster verification could exercise the flow without terminating TLS — with it true and a
+plain-http listener the callback fails at `CSRF cookie '_oauth2_proxy_csrf' was not found` → 403,
+because a `Secure` cookie is never sent over http. Both states are captured as evidence; the
+refusal is worth as much as the login.
 
 `OAUTH2_PROXY_COOKIE_SECRET` must be exactly 16, 24 or 32 bytes — it is the AES key for the
 cookie. Generate with `openssl rand -base64 32 | head -c 32`. A wrong length fails at startup,
 which is the good outcome; the bad one is a 32-character string that happens to be the right
 length and was reused from somewhere else.
 
-## 8. Not verified
+## 8. Verification status
 
-Everything in this document below §3 describes intended behaviour. What has actually been
-observed is only the template guard in §3.
+Updated 2026-07-26 after the flow was run end to end on a live cluster. Raw output in
+[`evidence/2026-07-25/sso-proof.txt`](../evidence/2026-07-25/sso-proof.txt).
+
+**One caveat that does not go away:** Keycloak runs `start-dev`, which disables hostname
+strictness and the HTTPS requirement. The OIDC protocol flow is identical — same authorization
+code exchange, same JWKS verification — but this is not a production identity-provider
+deployment, and the manifest says so inline rather than leaving it to be discovered.
 
 | Claim | Status |
 |---|---|
 | The template refuses to expose the dashboard without SSO | **verified** — L21 |
 | oauth2-proxy renders with correct args from values | **verified** — L22 |
-| A real login succeeds through Keycloak | **not done** — C5 |
-| The upstream receives `X-Auth-Request-User` | **not done** |
-| Cookie expiry behaves as configured | **not done** |
-| Keycloak survives a restart with its Postgres | **not done** |
+| **A real login succeeds through Keycloak** | **verified** — K17. Full 5-step authorization-code flow; the dashboard returns 200 only with a session |
+| The dashboard is unreachable without auth | **verified** — K18. Unauthenticated `GET /` → 302 to Keycloak, never the dashboard |
+| `--cookie-secure=true` is genuinely enforcing | **verified** — K19. The same flow is *refused* over plain http: `CSRF cookie '_oauth2_proxy_csrf' was not found` → 403 |
+| The upstream receives `X-Auth-Request-User` | **not verified** — `--set-xauthrequest=true` is set; the header reaching the dashboard was not asserted |
+| Cookie expiry behaves as configured | **not verified** — would need an 8-hour observation |
+| Keycloak survives a restart with its Postgres | **not verified** |
