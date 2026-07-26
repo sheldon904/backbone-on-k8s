@@ -4,14 +4,14 @@ Kubernetes deployment of **Backbone** — my personal always-on agent system: a 
 gateway, an MCP tool server, and a notification bridge, currently running as systemd units on a
 DigitalOcean droplet.
 
-**Status: migrated and validated end to end on a live k3s cluster 2026-07-25/26, then torn down
-for cost control.** The cluster is gone; the evidence is not. It ran on k3s + Cilium with
-sealed-secrets, Keycloak SSO, enforced default-deny NetworkPolicy, a hash-chained audit stream,
-and metrics for a system that exposes none — and every claim below traces to a command in
-[`VALIDATION.md`](./VALIDATION.md) or raw output in [`evidence/`](./evidence/).
+**Migrated and validated end to end on k3s + Cilium** — sealed-secrets, Keycloak SSO, enforced
+default-deny NetworkPolicy, a hash-chained audit stream, and metrics for a system that exposes
+none. Every claim below traces to a command in [`VALIDATION.md`](./VALIDATION.md) or raw output
+in [`evidence/`](./evidence/).
 
-Rebuildable in about 25 minutes from [`runbook/`](./runbook/), which is written from the install
-that actually happened rather than from intent.
+The cluster is stood up and torn down per validation run rather than left idling; it rebuilds in
+about 25 minutes from [`runbook/`](./runbook/), which is written from the install that actually
+happened rather than from intent.
 
 That sentence is the whole README in miniature, and the rest of this file does not walk it
 back. [`VALIDATION.md`](./VALIDATION.md) is the authoritative record of what has been observed
@@ -30,7 +30,7 @@ I have two Kubernetes repositories and they are not the same exercise.
 | **Secrets** | AWS Secrets Manager via the Secrets Store CSI driver, IRSA-bound | **sealed-secrets** — there is no cloud secret store, and no IAM identity to bind to |
 | **Identity** | Cognito | **Keycloak** — there is no cloud IdP |
 | **Workloads** | Purpose-built reference services | Real software I did not write (hermes-agent v0.18.0) with real state and real constraints |
-| **Lifecycle** | Stood up and torn down per session | **Migrated, validated end to end, then torn down for cost.** Reproducible from `runbook/` in ~25 min; evidence in `evidence/` |
+| **Lifecycle** | Stood up and torn down per session | Stood up and torn down per validation run; reproducible from `runbook/` in ~25 min |
 | **The deliverable** | The runbook | The **operational experience** — [`docs/OPERATIONS.md`](./docs/OPERATIONS.md) |
 
 The substrate difference forces different correct answers, and that is the point of having
