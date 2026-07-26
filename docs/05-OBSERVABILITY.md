@@ -11,12 +11,40 @@ is measured instead.
 
 ## 1. The four requested metrics, checked against reality
 
-| Requested | Can it be measured today? |
+| Requested | Status |
 |---|---|
-| **proposal → approval latency** | **No.** Requires the governance gate's proposal state machine, which was removed on 2026-05-24 ([`00-CURRENT-STATE.md §2`](./00-CURRENT-STATE.md)). There are no proposals, so there is no latency between their states |
-| **policy-gate decisions (allowed / denied / replayed)** | **No.** Same reason. `packages/governance` implements exactly these three outcomes and passes 57 tests; nothing calls it |
-| **workflow success rate** | **Yes** — cron jobs and tool calls both produce success/failure, and `kanban.db` has `task_runs` |
-| **cost per task** | **Yes** — OpenRouter returns token usage and cost per request; the dashboard already has `show_token_analytics: true` |
+| **proposal → approval latency** | **Not measurable.** Requires the governance gate's proposal state machine, removed 2026-05-24 ([`00-CURRENT-STATE.md §2`](./00-CURRENT-STATE.md)). There are no proposals, so there is no latency between their states. **The panel was deleted rather than shipped showing a constant zero** |
+| **policy-gate decisions (allowed / denied / replayed)** | **Not measurable.** Same reason. Also deleted |
+| **workflow success rate** | ✅ **live** — `backbone_workflow_runs_total{job}` from the gateway's in-process scheduler |
+| **cost per task** | ✅ **live** — `backbone_cost_usd_total / backbone_sessions_total` |
+| **recall latency** *(added)* | ✅ **live** — measured by a synthetic prober; see §2b |
+
+### What the numbers actually are
+
+Observed on the restored production corpus, 2026-07-26:
+
+```
+sessions                1,111
+cost (estimated)        $8.52   ->  COST PER TASK  $0.00767
+tokens  input           74,694,559
+        cache_read     231,372,396      <- prompt caching working
+        output           1,723,797
+top models   qwen3-235b $4.62 | mimo-v2.5 $2.91 | deepseek-v4-pro $0.99
+recall latency          ~3.8 ms mean, 0 probe failures
+workflow runs           gmail-intake 2,895 | memory-ingest 2,352 | calendar-sync 9,847
+```
+
+**Two honesty constraints are built into the dashboard rather than left to the reader.**
+
+`cost_status` is exported as a *label*, not collapsed away, because `actual_cost_usd` is null
+across the entire corpus — every figure is `estimated`, derived from the provider's pricing API.
+A cost panel that silently presents estimates as billed amounts produces a number that gets
+repeated in a meeting as fact.
+
+Recall latency is **measured, not read**. `recall_log` stores a timestamp and no duration, so
+`backbone-exporter` runs a real FTS query against the live store and times it. That measures the
+FTS path — it is *not* the same quantity as the five-channel figure in the hybrid-memory
+research, and the panel description says so.
 
 Building panels for the first two would mean building panels that display a constant zero. The
 dashboard ships with **the two that are real**, plus panels for what actually constrains this
@@ -41,15 +69,20 @@ That is the honest version of "instrument the four metrics".
 | Token cost per request | Langfuse | **not implemented** — see §4 |
 | Workflow success rate | hermes-agent | **not implemented** — hermes-agent exposes no Prometheus endpoint |
 
-### The gap worth naming
+### The gap, and how it was closed
 
-**hermes-agent has no `/metrics` endpoint.** Every gateway-level signal in the dashboard is
-therefore inferred from outside — pod restarts, container memory, CronJob completion — rather
-than reported by the application.
+**hermes-agent has no `/metrics` endpoint** — verified, `grep -rniE 'prometheus|/metrics'` over
+the upstream tree returns nothing. Every gateway signal would otherwise be inferred from outside
+the application.
 
-Closing it means either a sidecar that parses `agent.log` into metrics (fragile, log formats
-change), or a contribution upstream (correct, slower). Neither is done. It is the single largest
-observability gap and it is not hidden behind a panel that looks like it works.
+`services/backbone-exporter/` closes it by reading the state the agent already writes:
+`state.db.sessions` for cost and tokens, `memory_store.db` for the substrate, `cron/jobs.json`
+for the scheduler, `kanban.db` for task runs — plus a prober for the one quantity nothing
+records. Stdlib Python, ~300 lines, no dependencies.
+
+Two things it taught, both in [`OPERATIONS.md`](./OPERATIONS.md): `pathlib.exists()` *raises* on
+an unreadable parent rather than returning False, and a `readOnly` volume mount breaks SQLite
+WAL readers because opening even read-only requires creating the `-shm` file.
 
 ## 3. Why these panels and not others
 

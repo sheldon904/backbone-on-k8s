@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. **38 verified locally, 8 in CI, 19 on a live cluster, 8 still open.**
+Last updated: 2026-07-25. **38 verified locally, 8 in CI, 23 on a live cluster, 5 still open.**
 
 ---
 
@@ -100,6 +100,10 @@ k3s v1.36.2 + **Cilium 1.16.5** (flannel disabled — it cannot enforce NetworkP
 | K13 | Pod Security Admission `restricted` is enforcing | a non-compliant probe pod was refused by the API server |
 | K14 | Cilium reports policy enforcement on every backbone endpoint | `ingress=both` (ingress+egress) on all 4 |
 | K15 | **The dashboard runs** — web assets built in-image | `dashboard: ready=true restarts=0`; log: `using dist at .../hermes_cli/web_dist`. Four containers healthy: gateway, dashboard, 2x notify-mcp, ntfy |
+| K20 | **Recall latency is live on the cluster** | `backbone_recall_latency_seconds` — 4 probes, sum 0.0153 s, ~3.8 ms mean, **0 failures**, against the restored 22 MB memory store |
+| K21 | **Workflow success rate is live** | `backbone_workflow_runs_total` — gmail-intake 2,895 · memory-ingest 2,352 · calendar-sync 9,847, from the restored scheduler table |
+| K22 | **Cost per task is live** | 1,111 sessions, $8.52 estimated → **$0.00767/task**; 231 M cache-read vs 74.7 M input tokens |
+| K23 | The memory substrate reads on-cluster | facts 1,604 · entities 929 · edges 3,254 · recall events 2,727 |
 | K17 | **A real OIDC login succeeds through Keycloak** | 5-step authorization-code flow: 302 → login form → code issued → `_oauth2_proxy` session cookie → dashboard HTTP 200. Closes C5 |
 | K18 | The dashboard is **unreachable without auth** | unauthenticated `GET /` → 302 to Keycloak, never the dashboard |
 | K19 | `--cookie-secure=true` is genuinely enforcing | with the production default, the same flow is **refused** over plain http: `CSRF cookie '_oauth2_proxy_csrf' was not found` → 403 |

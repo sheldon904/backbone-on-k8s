@@ -227,6 +227,69 @@ def collect() -> str:
     )
     out.extend(last_run_lines)
 
+    # --- cost and tokens -----------------------------------------------------
+    #
+    # `state.db.sessions` already carries what "cost per task" needs -- hermes
+    # records it per session and the dashboard config has show_token_analytics
+    # on. No Langfuse required to answer the question.
+    #
+    # cost_status is exported as a LABEL rather than collapsed away, because it
+    # is almost always `estimated`: actual_cost_usd is null across the observed
+    # corpus and the figures come from the provider's model-pricing API. A cost
+    # panel that silently presents estimates as billed amounts is the kind of
+    # number that gets repeated in a meeting.
+    state_db = STATE_DIR / "state.db"
+    metric("backbone_sessions_total", "counter", "Agent sessions recorded.")
+    metric("backbone_cost_usd_total", "counter",
+           "Summed session cost in USD, labelled by how the figure was derived.")
+    metric("backbone_tokens_total", "counter", "Tokens by kind across all sessions.")
+    metric("backbone_model_cost_usd_total", "counter", "Session cost in USD by model.")
+    if _readable(state_db):
+        try:
+            conn = _ro(state_db)
+            try:
+                n = conn.execute("SELECT count(*) FROM sessions").fetchone()
+                out.append(f"backbone_sessions_total {int(n[0]) if n else 0}")
+
+                for status, source, total in conn.execute(
+                    "SELECT coalesce(cost_status,'unknown'), coalesce(cost_source,'unknown'),"
+                    " sum(coalesce(actual_cost_usd, estimated_cost_usd, 0))"
+                    " FROM sessions GROUP BY 1,2"
+                ):
+                    out.append(
+                        f'backbone_cost_usd_total{{status="{_esc(str(status))}",'
+                        f'source="{_esc(str(source))}"}} {float(total or 0):.6f}'
+                    )
+
+                token_cols = [
+                    ("input", "input_tokens"),
+                    ("output", "output_tokens"),
+                    ("cache_read", "cache_read_tokens"),
+                    ("cache_write", "cache_write_tokens"),
+                    ("reasoning", "reasoning_tokens"),
+                ]
+                sums = conn.execute(
+                    "SELECT " + ", ".join(f"sum(coalesce({c},0))" for _, c in token_cols)
+                    + " FROM sessions"
+                ).fetchone()
+                if sums:
+                    for (kind, _), v in zip(token_cols, sums):
+                        out.append(f'backbone_tokens_total{{kind="{kind}"}} {int(v or 0)}')
+
+                for model, total in conn.execute(
+                    "SELECT model, sum(coalesce(actual_cost_usd, estimated_cost_usd, 0))"
+                    " FROM sessions WHERE model IS NOT NULL GROUP BY 1"
+                    " ORDER BY 2 DESC LIMIT 10"
+                ):
+                    out.append(
+                        f'backbone_model_cost_usd_total{{model="{_esc(str(model))}"}} '
+                        f"{float(total or 0):.6f}"
+                    )
+            finally:
+                conn.close()
+        except Exception:  # noqa: BLE001
+            pass
+
     # --- task runs -----------------------------------------------------------
     metric("backbone_task_runs_total", "counter", "Task runs by terminal status.")
     if _readable(kan):

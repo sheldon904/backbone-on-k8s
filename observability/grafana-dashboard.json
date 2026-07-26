@@ -9,7 +9,7 @@
     }
   ],
   "title": "Backbone on Kubernetes",
-  "description": "Metrics that apply to THIS system. Deliberately no 'recall latency' -- that belongs to a different project. Two of the four originally-requested metrics measure a subsystem that is not running; they are in the collapsed row at the bottom, defined but showing no data.",
+  "description": "Metrics that apply to THIS system. The three the brief named -- recall latency, workflow success rate, cost per task -- are all live and sourced from backbone-exporter, which exists because hermes-agent exposes no /metrics endpoint of its own. Recall latency is measured by a prober, not read from the app; cost is labelled by derivation because it is estimated rather than billed.",
   "tags": [
     "backbone",
     "k3s",
@@ -606,89 +606,347 @@
       "options": {}
     },
     {
-      "id": 500,
-      "title": "Governance gate \u2014 NOT WIRED, panels defined so re-wiring turns them on",
+      "id": 600,
+      "title": "Agent \u2014 the three metrics the brief named",
       "type": "row",
-      "collapsed": true,
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 40
       },
-      "panels": [
+      "panels": []
+    },
+    {
+      "id": 20,
+      "title": "Recall latency (p50 / p95) \u2014 MEASURED by a synthetic prober",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
         {
-          "id": 13,
-          "title": "Policy-gate decisions (no data - governance gate not wired, see docs/RETENTION.md \u00a75)",
-          "type": "timeseries",
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 41
-          },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(backbone_recall_latency_seconds_bucket[5m])))",
+          "legendFormat": "p50",
+          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
-          },
-          "targets": [
-            {
-              "expr": "sum by (decision) (rate(backbone_policy_decisions_total[5m]))",
-              "legendFormat": "{{decision}}",
-              "refId": "A",
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              }
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "custom": {}
-            },
-            "overrides": []
-          },
-          "options": {},
-          "description": "allowed / denied / replayed. packages/governance implements exactly these three outcomes and passes 57 tests, but was taken out of the request path on 2026-05-24 and is imported by nothing at runtime.",
-          "transparent": true
+          }
         },
         {
-          "id": 14,
-          "title": "Proposal to approval latency (no data - governance gate not wired)",
-          "type": "timeseries",
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 41
-          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(backbone_recall_latency_seconds_bucket[5m])))",
+          "legendFormat": "p95",
+          "refId": "B",
           "datasource": {
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
-          },
-          "targets": [
-            {
-              "expr": "histogram_quantile(0.95, sum by (le) (rate(backbone_proposal_approval_seconds_bucket[1h])))",
-              "legendFormat": "p95",
-              "refId": "A",
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              }
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "custom": {},
-              "unit": "s"
-            },
-            "overrides": []
-          },
-          "options": {},
-          "description": "Requires the proposal state machine. There are no proposals, so there is no latency between their states. Deliberately not shown as a healthy zero.",
-          "transparent": true
+          }
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "recall_log stores a timestamp but no duration, so this is measured by backbone-exporter running a real FTS query against the live memory store on an interval -- not read from the application. It times the FTS path specifically, which is NOT the same as the full five-channel recall figure in the hybrid-memory research."
+    },
+    {
+      "id": 21,
+      "title": "Memory substrate size",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "backbone_memory_rows",
+          "legendFormat": "{{table}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "facts / entities / edges / recall events in the hybrid store."
+    },
+    {
+      "id": 22,
+      "title": "Workflow success rate \u2014 completed runs by job",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 49
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "backbone_workflow_runs_total",
+          "legendFormat": "{{job}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "From the gateway's in-process scheduler (cron/jobs.json). Kubernetes CronJob metrics cannot see these -- they are not CronJobs."
+    },
+    {
+      "id": 23,
+      "title": "Workflow staleness \u2014 time since last run",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 49
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "time() - backbone_workflow_last_run_timestamp_seconds",
+          "legendFormat": "{{job}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "A job whose staleness climbs past its interval has silently stopped firing."
+    },
+    {
+      "id": 24,
+      "title": "COST PER TASK",
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 57
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum(backbone_cost_usd_total) / clamp_min(backbone_sessions_total, 1)",
+          "legendFormat": "USD / session",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 5
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "description": "Total session cost divided by session count. NOTE: cost_status is almost always 'estimated' -- derived from the provider's pricing API, not a billed amount. See the breakdown panel."
+    },
+    {
+      "id": 25,
+      "title": "Cost by derivation \u2014 estimated vs actual",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 57
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "backbone_cost_usd_total",
+          "legendFormat": "{{status}} / {{source}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Exported as a label rather than collapsed away: presenting estimates as billed amounts is how a number gets repeated in a meeting as fact."
+    },
+    {
+      "id": 26,
+      "title": "Cost by model",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 57
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "backbone_model_cost_usd_total",
+          "legendFormat": "{{model}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 27,
+      "title": "Token mix \u2014 cache reads vs input",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 63
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "backbone_tokens_total",
+          "legendFormat": "{{kind}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "cache_read greatly exceeding input is prompt caching doing its job."
+    },
+    {
+      "id": 28,
+      "title": "Exporter health",
+      "type": "stat",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 63
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "backbone_exporter_up",
+          "legendFormat": "up",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        },
+        {
+          "expr": "backbone_recall_probe_failures_total",
+          "legendFormat": "probe failures",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {}
     }
   ]
 }
