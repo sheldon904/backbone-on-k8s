@@ -9,7 +9,8 @@ on 2026-07-25, not from intent. Every command here was run; every failure in
 | [`01-prerequisites.md`](./01-prerequisites.md) | Host sizing, why 8 GB, why Cilium instead of the k3s default, what you must have before starting |
 | [`02-install.md`](./02-install.md) | The full procedure, start to a working cluster |
 | [`03-failure-modes.md`](./03-failure-modes.md) | Six failures hit during the reference install, with symptom → cause → fix |
-| [`04-rollback.md`](./04-rollback.md) | Backing out, teardown, and what must survive it |
+| [`04-rollback.md`](./04-rollback.md) | Backing out a release, backing out a single control, restoring state |
+| [`05-teardown.md`](./05-teardown.md) | Destroying the cluster without destroying the evidence |
 
 ## Time and cost, measured
 
@@ -17,6 +18,7 @@ on 2026-07-25, not from intent. Every command here was run; every failure in
 |---|---|
 | Provision → all pods Running | **~90 minutes**, including six failures |
 | Provision → all pods Running, knowing what is in here | ~25 minutes |
+| Provision → SSO, monitoring, a real workflow executing | **~8 hours**, including 14 logged incidents |
 | Droplet cost | `s-4vcpu-8gb`, ~$0.071/hr — **~$5 for a 3-day run** |
 
 ## Reference environment

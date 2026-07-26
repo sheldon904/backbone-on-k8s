@@ -1,0 +1,80 @@
+# FINAL CLUSTER STATE — 2026-07-26T01:21:15+00:00
+
+## all pods
+NAMESPACE     NAME                                                  READY   STATUS      RESTARTS       AGE     IP               NODE           NOMINATED NODE   READINESS GATES
+backbone      backbone-exporter-7d9794dfbd-28pm9                    1/1     Running     0              42m     10.42.0.174      backbone-k8s   <none>           <none>
+backbone      backbone-gateway-7b9b8f494b-fldb9                     3/3     Running     0              6m25s   10.42.0.190      backbone-k8s   <none>           <none>
+backbone      backbone-notify-mcp-69777c44d-2qvf2                   1/1     Running     0              140m    10.42.0.217      backbone-k8s   <none>           <none>
+backbone      backbone-notify-mcp-69777c44d-g5mh9                   1/1     Running     0              140m    10.42.0.6        backbone-k8s   <none>           <none>
+backbone      backbone-ntfy-0                                       1/1     Running     0              141m    10.42.0.21       backbone-k8s   <none>           <none>
+identity      keycloak-685b496d55-nhrqf                             1/1     Running     0              117m    10.42.0.250      backbone-k8s   <none>           <none>
+identity      keycloak-postgres-0                                   1/1     Running     0              117m    10.42.0.219      backbone-k8s   <none>           <none>
+kube-system   cilium-envoy-pk686                                    1/1     Running     0              3h4m    <droplet-ip>   backbone-k8s   <none>           <none>
+kube-system   cilium-operator-77dbdc55d9-4hpld                      1/1     Running     0              3h4m    <droplet-ip>   backbone-k8s   <none>           <none>
+kube-system   cilium-tsgzd                                          1/1     Running     0              3h4m    <droplet-ip>   backbone-k8s   <none>           <none>
+kube-system   coredns-5f5694d56b-lv42t                              1/1     Running     0              3h5m    10.42.0.20       backbone-k8s   <none>           <none>
+kube-system   hubble-relay-68b7c6d589-p6tdz                         1/1     Running     0              3h4m    10.42.0.104      backbone-k8s   <none>           <none>
+kube-system   local-path-provisioner-58d557dc48-lxcqt               1/1     Running     0              3h5m    10.42.0.208      backbone-k8s   <none>           <none>
+kube-system   metrics-server-7c86f97b8d-jn2ps                       1/1     Running     0              3h5m    10.42.0.166      backbone-k8s   <none>           <none>
+kube-system   sealed-secrets-controller-549fdd6dc6-bjzh8            1/1     Running     0              3h1m    10.42.0.154      backbone-k8s   <none>           <none>
+kube-system   svclb-traefik-384577a7-ns7jf                          2/2     Running     0              3h2m    10.42.0.137      backbone-k8s   <none>           <none>
+kube-system   traefik-6cd8c7cd89-2b2nr                              1/1     Running     0              3h2m    10.42.0.54       backbone-k8s   <none>           <none>
+monitoring    kps-grafana-74d8846568-2nnmj                          3/3     Running     0              48m     10.42.0.102      backbone-k8s   <none>           <none>
+monitoring    kps-kube-prometheus-stack-operator-595c78cd5b-rhp78   1/1     Running     0              48m     10.42.0.112      backbone-k8s   <none>           <none>
+monitoring    kps-kube-state-metrics-5498c6bd8d-b9vn4               1/1     Running     0              48m     10.42.0.149      backbone-k8s   <none>           <none>
+monitoring    kps-prometheus-node-exporter-67wqc                    1/1     Running     0              48m     <droplet-ip>   backbone-k8s   <none>           <none>
+monitoring    prometheus-kps-kube-prometheus-stack-prometheus-0     2/2     Running     0              48m     10.42.0.78       backbone-k8s   <none>           <none>
+monitoring    q25909                                                0/1     Completed   0              44m     10.42.0.138      backbone-k8s   <none>           <none>
+
+## backbone pvc
+NAME                        STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+backbone-gateway-state      Bound    pvc-869516cf-531b-4597-a4f1-a57d1aba502b   20Gi       RWO            local-path     <unset>                 177m
+backbone-notify-mcp-audit   Bound    pvc-e5a3ae57-0461-41ae-a218-17b8a12323c9   5Gi        RWO            local-path     <unset>                 140m
+cache-backbone-ntfy-0       Bound    pvc-3342a47c-1fa2-41dd-b9bd-248729d90836   2Gi        RWO            local-path     <unset>                 177m
+
+## networkpolicies
+NAME                               POD-SELECTOR                                                                   AGE
+backbone-allow-dns                 <none>                                                                         177m
+backbone-allow-external-egress     app.kubernetes.io/name in (hermes-gateway,notify-mcp)                          177m
+backbone-default-deny              <none>                                                                         177m
+backbone-exporter-scrape           app.kubernetes.io/instance=backbone,app.kubernetes.io/name=backbone-exporter   83m
+backbone-gateway-egress-keycloak   app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway      108m
+backbone-gateway-egress-notify     app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway      159m
+backbone-gateway-to-notify         app.kubernetes.io/instance=backbone,app.kubernetes.io/name=notify-mcp          177m
+backbone-ingress-to-gateway        app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway      177m
+backbone-notify-egress-ntfy        app.kubernetes.io/instance=backbone,app.kubernetes.io/name=notify-mcp          159m
+backbone-notify-mcp-scrape         app.kubernetes.io/instance=backbone,app.kubernetes.io/name=notify-mcp          42m
+backbone-notify-to-ntfy            app.kubernetes.io/instance=backbone,app.kubernetes.io/name=ntfy                177m
+
+## helm releases
+NAME       	NAMESPACE  	REVISION	UPDATED                                	STATUS  	CHART                        	APP VERSION
+backbone   	backbone   	22      	2026-07-26 01:01:55.397858275 +0000 UTC	deployed	backbone-0.1.0               	0.18.0     
+cilium     	kube-system	1       	2026-07-25 22:17:03.321559105 +0000 UTC	deployed	cilium-1.16.5                	1.16.5     
+kps        	monitoring 	2       	2026-07-26 00:38:19.745984394 +0000 UTC	deployed	kube-prometheus-stack-87.19.1	v0.92.1    
+traefik    	kube-system	1       	2026-07-25 22:18:24.132716262 +0000 UTC	deployed	traefik-40.1.3+up40.1.0      	v3.7.1     
+traefik-crd	kube-system	1       	2026-07-25 22:18:05.894580715 +0000 UTC	deployed	traefik-crd-40.1.3+up40.1.0  	v3.7.1     
+
+## THE THREE METRICS via PromQL
+  recall latency mean (ms) = 2.2968588235294116
+  workflow gmail-intake    = 2895
+  workflow memory-feedback = 25
+  COST PER TASK (USD)      = 0.007667476147614761
+  sessions                 = 1111
+  facts / entities / edges = 1604 / 929 / 3254
+
+## cron enabled ON THE CLUSTER (external ones disabled)
+  disabled calendar-sync  completed=9847  last=2026-07-02T02:16:59
+  disabled hermes-backup  completed=62  last=2026-07-25T07:00:46
+  disabled gmail-intake  completed=2895  last=2026-07-25T23:54:12
+  disabled svn-monthly-report  completed=2  last=2026-07-01T13:01:35
+  disabled ticket-factory-daily  completed=19  last=2026-06-17T22:00:16
+  disabled AC Vinegar Reminder  completed=2  last=2026-07-10T10:00:38
+  ENABLED  memory-consolidate  completed=3  last=2026-07-20T04:01:17
+  ENABLED  memory-ingest  completed=2359  last=2026-07-25T21:18:01
+  ENABLED  memory-feedback  completed=25  last=2026-07-25T21:04:18
+  disabled ontology-review-nudge  completed=2  last=2026-07-20T09:00:03
+
+## upstream patches in the running container
+  0001 cron skip_memory opt-in: PRESENT
+  0002 holographic rollback: PRESENT
+  0003 memory_tool overflow: PRESENT
