@@ -1,0 +1,26 @@
+# Grafana proof — dashboard rendering real cluster data
+# Grafana 3-container pod, kube-prometheus-stack, k3s + Cilium
+
+dashboard : Backbone on Kubernetes  (uid=backbone-k8s)
+panels    : 21 non-row panels imported
+
+Grafana /api/ds/query results (instant, live):
+  COST PER TASK (USD)              = 0.007667476147614761
+  workflow runs: gmail-intake      = 2895
+  workflow runs: memory-ingest     = 2353
+  RECALL LATENCY mean (ms)         = 3.2746666666666666
+  memory: facts                    = 1604
+  tokens: cache_read               = 231372396
+  sessions                         = 1111
+  notify-mcp uptime (s)            = 6030
+
+## Prometheus targets
+  backbone-exporter health=up
+  backbone-notify-mcp health=up
+
+## backbone alert rules loaded
+  BackboneGatewayRestartLoop [critical]
+  BackboneGatewayDown [critical]
+  BackboneNotifyAllChannelsFailing [warning]
+  BackboneNotifyChannelDegraded [info]
+  BackboneStateVolumeFilling [warning]

@@ -534,3 +534,57 @@ triggers with the same care as the credentials.
 Also worth noting: `hermes cron disable <name>` returned exit 2 for every job. The CLI's
 syntax differs from what the docs implied, and under time pressure the reliable move was to
 stop the process and edit the file it owns rather than keep guessing at flags.
+
+## 2026-07-26 — Prometheus scraped, and three metrics were quietly unqueryable
+
+kube-prometheus-stack into a `monitoring` namespace, ServiceMonitors for the exporter and
+notify-mcp, dashboard imported into Grafana. Three separate things were broken and **none of
+them looked broken from the exporter's side** — `/metrics` served every series correctly the
+whole time.
+
+**1. `job` is a reserved Prometheus label.**
+
+`backbone_workflow_runs_total{job="gmail-intake"}` returned `NO DATA` through PromQL while the
+exporter was plainly emitting it. Prometheus **overwrites** `job` with the scrape job name, so
+every workflow series silently collapsed into `{job="backbone-exporter"}` and the label I had
+chosen simply ceased to exist. Renamed to `workflow`.
+
+This is the sharpest version of a theme running through this whole project: the component was
+correct, the endpoint was correct, and the data was destroyed in transit by a convention nobody
+warns you about. `grep`ping the exporter for the metric name would have found it and proved
+nothing.
+
+**2. notify-mcp was `health=down` in Prometheus, and perfectly healthy in reality.**
+
+Fourth instance of the default-deny trap. The exporter got a scrape allow rule; notify-mcp did
+not. Prometheus could not reach it, reported the target down, and every notify panel would have
+been blank — which reads as "the service is broken", not "monitoring cannot see it".
+
+**3. `sum(a) / b` returns nothing.**
+
+The cost-per-task query was `sum(backbone_cost_usd_total) / backbone_sessions_total`. `sum()`
+strips all labels; the right-hand side keeps `instance`, `pod`, `job`; the vector match finds no
+common label set and yields an empty result. Not an error — an *empty result*, which on a stat
+panel renders as a dash. Needs `sum()` on both sides.
+
+**4. PrometheusRule loaded 0 rules.** `ruleSelectorNilUsesHelmValues` defaults to true, so the
+operator only picks up rules carrying the release's own label. Set it false; 5 rules loaded.
+
+**Verified after the fixes** — through Grafana's own query API, not the exporter:
+
+```
+COST PER TASK (USD)              = 0.007667
+workflow runs: gmail-intake      = 2895
+workflow runs: memory-ingest     = 2353     (2352 an hour earlier -- it is incrementing)
+RECALL LATENCY mean (ms)         = 3.27
+memory: facts                    = 1604
+tokens: cache_read               = 231372396
+targets                          = backbone-exporter up, backbone-notify-mcp up
+alert rules                      = 5 loaded
+```
+
+**Kept as a lesson.** Every one of these produced *absence* rather than an error: a missing
+series, a down target, an empty vector, zero rules. Absence is the hardest failure to notice on
+a dashboard, because a blank panel and a healthy-but-idle panel look identical. The only thing
+that caught them was querying each metric by name and asserting a value came back — which is
+now what `evidence/2026-07-26/grafana-proof.txt` records.

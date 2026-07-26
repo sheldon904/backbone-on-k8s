@@ -1,0 +1,7 @@
+NAME                                                  READY   STATUS      RESTARTS   AGE     IP               NODE           NOMINATED NODE   READINESS GATES
+kps-grafana-74d8846568-2nnmj                          3/3     Running     0          9m22s   10.42.0.102      backbone-k8s   <none>           <none>
+kps-kube-prometheus-stack-operator-595c78cd5b-rhp78   1/1     Running     0          9m22s   10.42.0.112      backbone-k8s   <none>           <none>
+kps-kube-state-metrics-5498c6bd8d-b9vn4               1/1     Running     0          9m22s   10.42.0.149      backbone-k8s   <none>           <none>
+kps-prometheus-node-exporter-67wqc                    1/1     Running     0          9m22s   <droplet-ip>   backbone-k8s   <none>           <none>
+prometheus-kps-kube-prometheus-stack-prometheus-0     2/2     Running     0          9m16s   10.42.0.78       backbone-k8s   <none>           <none>
+q25909                                                0/1     Completed   0          5m51s   10.42.0.138      backbone-k8s   <none>           <none>
