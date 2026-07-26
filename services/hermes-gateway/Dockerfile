@@ -45,7 +45,13 @@ RUN set -eu; \
       [ -e "$p" ] || continue; \
       echo "applying $(basename "$p")"; \
       git -C hermes-agent apply --verbose "$p"; \
-    done
+    done; \
+    # Assert the patched tree is what we recorded. A patch can apply "cleanly"
+    # and still land differently if upstream moved a nearby line, so applying
+    # without checking proves less than it looks like it does.
+    cd hermes-agent && \
+    grep -v '^#' /src/patches/EXPECTED-SHA256 | grep -v '^$' | sha256sum -c - && \
+    echo "upstream parity verified: patched tree matches the running system"
 
 # Install into a relocatable venv that gets copied wholesale to the runtime
 # stage, so build tooling never reaches the final image.

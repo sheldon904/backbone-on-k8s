@@ -1,0 +1,205 @@
+Subject: [PATCH] memory_tool: archival overflow hook
+
+A memory provider may register a callback that accepts an entry exceeding the
+curated char budget and files it into an unbounded, searchable tier instead of
+rejecting the write. With no handler registered the behaviour is unchanged: the
+at-capacity error is returned exactly as before.
+
+Motivation: returning an error at capacity hands the model a dead end at the
+precise moment it is trying to record something. Overflowing to a searchable
+tier keeps the write and defers the curation decision.
+
+Discovered 2026-07-25 as an uncommitted modification in the running checkout.
+
+Verified to apply cleanly against a fresh clone of v2026.7.1.
+
+diff --git a/tools/memory_tool.py b/tools/memory_tool.py
+index 02315bd072..e3ed94ed32 100644
+--- a/tools/memory_tool.py
++++ b/tools/memory_tool.py
+@@ -110,6 +110,45 @@ def _drift_error(path: "Path", bak_path: str) -> Dict[str, Any]:
+     }
+ 
+ 
++# --- archival overflow hook (local patch, see hermes-hybrid-memory/patches) --
++#
++# A memory provider may register a callback that accepts an entry which does
++# not fit the curated char budget and files it in an unbounded, searchable tier
++# instead of rejecting the write. Without a handler registered, behavior is
++# exactly as before: the at-capacity error is returned unchanged.
++#
++# Motivation: returning an error here hands the model a dead end at the precise
++# moment it is trying to remember something. The observed failure mode was that
++# it improvised its own storage (a loose file nothing indexes) and asked the
++# user to arbitrate which memories to delete.
++_OVERFLOW_HANDLER = None
++_ADMISSION_POLICY = None
++
++
++def set_overflow_handler(fn) -> None:
++    """Register the archival-demotion callback, or clear it with None.
++
++    ``fn(target: str, content: str) -> Optional[str]`` returns a short note
++    describing where the entry was filed, or None to decline the demotion.
++    """
++    global _OVERFLOW_HANDLER
++    _OVERFLOW_HANDLER = fn
++
++
++def set_admission_policy(fn) -> None:
++    """Register a predicate deciding what does NOT belong in curated memory.
++
++    ``fn(target: str, content: str) -> bool`` returns True when the entry is
++    changing detail (a dated event, a running count, a profile of some entity)
++    that should go to the searchable tier rather than consume the always-loaded
++    budget. Standing facts return False and are pinned as usual. Requires an
++    overflow handler to have somewhere to route to; without one, everything is
++    admitted exactly as before.
++    """
++    global _ADMISSION_POLICY
++    _ADMISSION_POLICY = fn
++
++
+ class MemoryStore:
+     """
+     Bounded curated memory with file persistence. One instance per AIAgent.
+@@ -333,6 +372,58 @@ class MemoryStore:
+             return self.user_char_limit
+         return self.memory_char_limit
+ 
++    def _demote(self, target: str, content: str,
++                action: str = "add") -> Optional[Dict[str, Any]]:
++        """File an over-budget entry in the archival tier instead of refusing it.
++
++        Returns a success response when a handler took the entry, or None to
++        fall through to the original at-capacity error (no handler registered,
++        handler declined, or handler raised).
++        """
++        if _OVERFLOW_HANDLER is None:
++            return None
++        try:
++            note = _OVERFLOW_HANDLER(target, content)
++        except Exception as e:
++            logger.debug("overflow handler failed (%s); falling back to error", e)
++            return None
++        if not note:
++            return None
++        if action == "admission":
++            why = ("Curated memory is reserved for standing facts, and this reads "
++                   "as changing detail")
++            tail = ""
++        elif action == "replace":
++            why = "Curated memory is at capacity"
++            tail = " The entry you meant to replace was left in place."
++        else:
++            why = "Curated memory is at capacity"
++            tail = ""
++        return {
++            "success": True,
++            "tier": "archival",
++            "message": (
++                f"{note} {why}, so it was filed in long-term memory rather than "
++                f"pinned to the always-loaded block. It stays searchable.{tail}"
++            ),
++        }
++
++    def _route_admission(self, target: str, content: str) -> Optional[Dict[str, Any]]:
++        """Let the provider divert changing detail away from the curated block.
++
++        Returns an archival success response when the policy diverts the entry,
++        or None to admit it into curated memory as usual.
++        """
++        if _ADMISSION_POLICY is None:
++            return None
++        try:
++            if not _ADMISSION_POLICY(target, content):
++                return None
++        except Exception as e:
++            logger.debug("admission policy failed (%s); admitting entry", e)
++            return None
++        return self._demote(target, content, action="admission")
++
+     def add(self, target: str, content: str) -> Dict[str, Any]:
+         """Append a new entry. Returns error if it would exceed the char limit."""
+         content = content.strip()
+@@ -360,11 +451,20 @@ class MemoryStore:
+             if content in entries:
+                 return self._success_response(target, "Entry already exists (no duplicate added).")
+ 
++            # Changing detail goes to the searchable tier without consuming the
++            # always-loaded budget, whether or not there is room for it today.
++            routed = self._route_admission(target, content)
++            if routed is not None:
++                return routed
++
+             # Calculate what the new total would be
+             new_entries = entries + [content]
+             new_total = len(ENTRY_DELIMITER.join(new_entries))
+ 
+             if new_total > limit:
++                demoted = self._demote(target, content)
++                if demoted is not None:
++                    return demoted
+                 current = self._char_count(target)
+                 return self._consolidation_failure({
+                     "success": False,
+@@ -435,6 +535,9 @@ class MemoryStore:
+             new_total = len(ENTRY_DELIMITER.join(test_entries))
+ 
+             if new_total > limit:
++                demoted = self._demote(target, new_content, action="replace")
++                if demoted is not None:
++                    return demoted
+                 current = self._char_count(target)
+                 return self._consolidation_failure({
+                     "success": False,
+@@ -662,19 +765,42 @@ class MemoryStore:
+         return resp
+ 
+     def _render_block(self, target: str, entries: List[str]) -> str:
+-        """Render a system prompt block with header and usage indicator."""
++        """Render a system prompt block with header and usage indicator.
++
++        The char limit is enforced here as well as on write. Writes are gated,
++        but a hand-edit, a restored backup, or a concurrent session can leave a
++        file above budget, and before this the whole file entered the prompt
++        anyway -- the cap silently did not hold where it actually costs tokens.
++        Over-budget files now truncate on whole entries in file order, and the
++        header says so, so the model knows to search rather than assume the
++        block is complete.
++
++        Truncation stays deterministic from disk bytes (file order, no store
++        lookups), which is what keeps the snapshot stable for a whole session
++        and the prompt prefix cacheable.
++        """
+         if not entries:
+             return ""
+ 
+         limit = self._char_limit(target)
+-        content = ENTRY_DELIMITER.join(entries)
++        kept, dropped, used = [], 0, 0
++        for entry in entries:
++            cost = len(entry) + (len(ENTRY_DELIMITER) if kept else 0)
++            if limit > 0 and used + cost > limit and kept:
++                dropped += 1
++                continue
++            kept.append(entry)
++            used += cost
++
++        content = ENTRY_DELIMITER.join(kept)
+         current = len(content)
+         pct = min(100, int((current / limit) * 100)) if limit > 0 else 0
+-
+-        if target == "user":
+-            header = f"USER PROFILE (who the user is) [{pct}% — {current:,}/{limit:,} chars]"
+-        else:
+-            header = f"MEMORY (your personal notes) [{pct}% — {current:,}/{limit:,} chars]"
++        label = ("USER PROFILE (who the user is)" if target == "user"
++                 else "MEMORY (your personal notes)")
++        header = f"{label} [{pct}% — {current:,}/{limit:,} chars]"
++        if dropped:
++            header += (f"\n{dropped} older entr{'y' if dropped == 1 else 'ies'} over budget, "
++                       f"not shown — search memory rather than assuming this is everything.")
+ 
+         separator = "═" * 46
+         return f"{separator}\n{header}\n{separator}\n{content}"

@@ -1,0 +1,6 @@
+# SHA256 of each patched file after applying patches/*.patch to hermes-agent v2026.7.1.
+# Captured 2026-07-26 and verified byte-identical to the running checkout at that moment.
+# If these stop matching, either a patch changed or upstream moved -- both need a decision.
+7be0c94690816bf65d9443c1736fa580c41378b4e5fdb568df6bbcc20b62be6a  cron/scheduler.py
+d084dc49e50a5b6e61af6d4a6915cd71d26907273ba6b41f54fe2e0c45797b21  plugins/memory/holographic/store.py
+2efe961da6a1fe17ab3546872ab67cd6e5291ad35e4d1cd5768b6cb351ec3b39  tools/memory_tool.py

@@ -1,0 +1,37 @@
+Subject: [PATCH] holographic store: roll back the failed-INSERT transaction
+
+On the duplicate-content path the store returned an existing id WITHOUT ending
+the transaction. The failed INSERT had already opened a deferred write txn, so
+returning early stranded it open on a long-lived connection -- locking every
+other writer out of memory_store.db (memory_ingest's provenance and overlay
+writes, the sync crons) until the process exited.
+
+This is a BUG FIX, not a preference. An image built from pristine upstream
+reintroduces a database-wide write lock that surfaces as intermittent
+"database is locked" errors under concurrent memory writes.
+
+Discovered 2026-07-25 as an uncommitted modification in the running checkout;
+the Phase 0 audit recorded only one local patch and missed this one. See
+docs/00-CURRENT-STATE.md §12 and docs/OPERATIONS.md.
+
+Verified to apply cleanly against a fresh clone of v2026.7.1.
+
+diff --git a/plugins/memory/holographic/store.py b/plugins/memory/holographic/store.py
+index 7ffc7db0f1..5f0e8765b3 100644
+--- a/plugins/memory/holographic/store.py
++++ b/plugins/memory/holographic/store.py
+@@ -171,7 +171,13 @@ class MemoryStore:
+                 self._conn.commit()
+                 fact_id: int = cur.lastrowid  # type: ignore[assignment]
+             except sqlite3.IntegrityError:
+-                # Duplicate content — return existing id
++                # Duplicate content — return existing id.
++                # Roll back first: the failed INSERT already opened a deferred
++                # write txn, and returning without commit/rollback strands it
++                # open on this long-lived connection, locking out every other
++                # connection to memory_store.db (memory_ingest's provenance and
++                # overlay writes, the sync crons) until the process exits.
++                self._conn.rollback()
+                 row = self._conn.execute(
+                     "SELECT fact_id FROM facts WHERE content = ?", (content,)
+                 ).fetchone()

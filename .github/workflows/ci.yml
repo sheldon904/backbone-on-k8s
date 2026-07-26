@@ -90,6 +90,11 @@ jobs:
       - name: static validation
         run: ./scripts/validate.sh
 
+      # Catches a patch that stopped applying the way it used to, or an upstream
+      # tag that moved. Needs no access to the live host.
+      - name: upstream patch parity
+        run: ./scripts/verify-upstream-parity.sh
+
       # Rendering against several Kubernetes versions catches API removals
       # before an upgrade does.
       - name: render against multiple Kubernetes versions
