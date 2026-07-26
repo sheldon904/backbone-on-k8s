@@ -1,0 +1,93 @@
+# HELP backbone_memory_rows Row counts in the hybrid memory store.
+# TYPE backbone_memory_rows gauge
+backbone_memory_rows{table="facts"} 1604
+backbone_memory_rows{table="entities"} 929
+backbone_memory_rows{table="edges"} 3254
+backbone_memory_rows{table="recall_events"} 2727
+# HELP backbone_recall_latency_seconds Latency of a synthetic recall query against the live memory store. Measured by this exporter -- recall_log stores no duration.
+# TYPE backbone_recall_latency_seconds histogram
+backbone_recall_latency_seconds_bucket{le="0.005"} 2
+backbone_recall_latency_seconds_bucket{le="0.01"} 2
+backbone_recall_latency_seconds_bucket{le="0.025"} 3
+backbone_recall_latency_seconds_bucket{le="0.05"} 3
+backbone_recall_latency_seconds_bucket{le="0.1"} 3
+backbone_recall_latency_seconds_bucket{le="0.25"} 3
+backbone_recall_latency_seconds_bucket{le="0.5"} 3
+backbone_recall_latency_seconds_bucket{le="1.0"} 3
+backbone_recall_latency_seconds_bucket{le="2.5"} 3
+backbone_recall_latency_seconds_bucket{le="+Inf"} 3
+backbone_recall_latency_seconds_sum 0.015829
+backbone_recall_latency_seconds_count 3
+# HELP backbone_recall_probe_failures_total Recall probes that errored.
+# TYPE backbone_recall_probe_failures_total counter
+backbone_recall_probe_failures_total 0
+# HELP backbone_workflow_runs_total Completed runs per scheduled workflow.
+# TYPE backbone_workflow_runs_total counter
+backbone_workflow_runs_total{job="calendar-sync"} 9847
+backbone_workflow_runs_total{job="hermes-backup"} 62
+backbone_workflow_runs_total{job="gmail-intake"} 2895
+backbone_workflow_runs_total{job="svn-monthly-report"} 2
+backbone_workflow_runs_total{job="ticket-factory-daily"} 19
+backbone_workflow_runs_total{job="AC Vinegar Reminder"} 2
+backbone_workflow_runs_total{job="memory-consolidate"} 3
+backbone_workflow_runs_total{job="memory-ingest"} 2352
+backbone_workflow_runs_total{job="memory-feedback"} 24
+backbone_workflow_runs_total{job="ontology-review-nudge"} 2
+# HELP backbone_workflow_enabled 1 if the scheduled workflow is enabled.
+# TYPE backbone_workflow_enabled gauge
+backbone_workflow_enabled{job="calendar-sync"} 0
+backbone_workflow_enabled{job="hermes-backup"} 0
+backbone_workflow_enabled{job="gmail-intake"} 0
+backbone_workflow_enabled{job="svn-monthly-report"} 0
+backbone_workflow_enabled{job="ticket-factory-daily"} 0
+backbone_workflow_enabled{job="AC Vinegar Reminder"} 0
+backbone_workflow_enabled{job="memory-consolidate"} 1
+backbone_workflow_enabled{job="memory-ingest"} 1
+backbone_workflow_enabled{job="memory-feedback"} 1
+backbone_workflow_enabled{job="ontology-review-nudge"} 0
+# HELP backbone_workflow_last_run_timestamp_seconds Unix timestamp of the last run of each scheduled workflow.
+# TYPE backbone_workflow_last_run_timestamp_seconds gauge
+backbone_workflow_last_run_timestamp_seconds{job="calendar-sync"} 1782958619
+backbone_workflow_last_run_timestamp_seconds{job="hermes-backup"} 1784962846
+backbone_workflow_last_run_timestamp_seconds{job="gmail-intake"} 1785023652
+backbone_workflow_last_run_timestamp_seconds{job="svn-monthly-report"} 1782910895
+backbone_workflow_last_run_timestamp_seconds{job="ticket-factory-daily"} 1781733616
+backbone_workflow_last_run_timestamp_seconds{job="AC Vinegar Reminder"} 1783677638
+backbone_workflow_last_run_timestamp_seconds{job="memory-consolidate"} 1784520077
+backbone_workflow_last_run_timestamp_seconds{job="memory-ingest"} 1785010436
+backbone_workflow_last_run_timestamp_seconds{job="memory-feedback"} 1784951137
+backbone_workflow_last_run_timestamp_seconds{job="ontology-review-nudge"} 1784538003
+# HELP backbone_sessions_total Agent sessions recorded.
+# TYPE backbone_sessions_total counter
+# HELP backbone_cost_usd_total Summed session cost in USD, labelled by how the figure was derived.
+# TYPE backbone_cost_usd_total counter
+# HELP backbone_tokens_total Tokens by kind across all sessions.
+# TYPE backbone_tokens_total counter
+# HELP backbone_model_cost_usd_total Session cost in USD by model.
+# TYPE backbone_model_cost_usd_total counter
+backbone_sessions_total 1111
+backbone_cost_usd_total{status="estimated",source="provider_models_api"} 7.575678
+backbone_cost_usd_total{status="unknown",source="provider_models_api"} 0.942888
+backbone_cost_usd_total{status="unknown",source="unknown"} 0.000000
+backbone_tokens_total{kind="input"} 74694559
+backbone_tokens_total{kind="output"} 1723797
+backbone_tokens_total{kind="cache_read"} 231372396
+backbone_tokens_total{kind="cache_write"} 0
+backbone_tokens_total{kind="reasoning"} 0
+backbone_model_cost_usd_total{model="qwen/qwen3-235b-a22b-2507"} 4.618892
+backbone_model_cost_usd_total{model="xiaomi/mimo-v2.5"} 2.910462
+backbone_model_cost_usd_total{model="deepseek/deepseek-v4-pro"} 0.989212
+# HELP backbone_task_runs_total Task runs by terminal status.
+# TYPE backbone_task_runs_total counter
+backbone_task_runs_total{status="done"} 4
+# HELP backbone_store_bytes On-disk size of each state store.
+# TYPE backbone_store_bytes gauge
+backbone_store_bytes{db="kanban.db"} 143360
+backbone_store_bytes{db="memory_store.db"} 22126592
+backbone_store_bytes{db="response_store.db"} 20480
+backbone_store_bytes{db="state.db"} 249061376
+backbone_store_bytes{db="verification_evidence.db"} 32768
+# HELP backbone_exporter_up 1 when the exporter served this scrape.
+# TYPE backbone_exporter_up gauge
+backbone_exporter_up 1
+

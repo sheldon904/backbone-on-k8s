@@ -1,0 +1,52 @@
+# Live cluster — 2026-07-26T00:29:14+00:00
+
+## pods
+NAME                                  READY   STATUS    RESTARTS   AGE     IP            NODE           NOMINATED NODE   READINESS GATES
+backbone-exporter-8ff4ccb48-hmxlh     1/1     Running   0          76s     10.42.0.186   backbone-k8s   <none>           <none>
+backbone-gateway-7fc578fff7-rpcnr     3/3     Running   0          8m52s   10.42.0.120   backbone-k8s   <none>           <none>
+backbone-notify-mcp-69777c44d-2qvf2   1/1     Running   0          88m     10.42.0.217   backbone-k8s   <none>           <none>
+backbone-notify-mcp-69777c44d-g5mh9   1/1     Running   0          88m     10.42.0.6     backbone-k8s   <none>           <none>
+backbone-ntfy-0                       1/1     Running   0          89m     10.42.0.21    backbone-k8s   <none>           <none>
+
+## identity ns (Keycloak)
+NAME                        READY   STATUS    RESTARTS   AGE
+keycloak-685b496d55-nhrqf   1/1     Running   0          65m
+keycloak-postgres-0         1/1     Running   0          65m
+
+## pvc
+NAME                        STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+backbone-gateway-state      Bound    pvc-869516cf-531b-4597-a4f1-a57d1aba502b   20Gi       RWO            local-path     <unset>                 125m
+backbone-notify-mcp-audit   Bound    pvc-e5a3ae57-0461-41ae-a218-17b8a12323c9   5Gi        RWO            local-path     <unset>                 88m
+cache-backbone-ntfy-0       Bound    pvc-3342a47c-1fa2-41dd-b9bd-248729d90836   2Gi        RWO            local-path     <unset>                 125m
+
+## networkpolicy
+NAME                               POD-SELECTOR                                                                   AGE
+backbone-allow-dns                 <none>                                                                         125m
+backbone-allow-external-egress     app.kubernetes.io/name in (hermes-gateway,notify-mcp)                          125m
+backbone-default-deny              <none>                                                                         125m
+backbone-exporter-scrape           app.kubernetes.io/instance=backbone,app.kubernetes.io/name=backbone-exporter   31m
+backbone-gateway-egress-keycloak   app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway      56m
+backbone-gateway-egress-notify     app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway      107m
+backbone-gateway-to-notify         app.kubernetes.io/instance=backbone,app.kubernetes.io/name=notify-mcp          125m
+backbone-ingress-to-gateway        app.kubernetes.io/instance=backbone,app.kubernetes.io/name=hermes-gateway      125m
+backbone-notify-egress-ntfy        app.kubernetes.io/instance=backbone,app.kubernetes.io/name=notify-mcp          107m
+backbone-notify-to-ntfy            app.kubernetes.io/instance=backbone,app.kubernetes.io/name=ntfy                125m
+
+## helm
+NAME       	NAMESPACE  	REVISION	UPDATED                                	STATUS  	CHART                      	APP VERSION
+backbone   	backbone   	17      	2026-07-26 00:16:14.177103323 +0000 UTC	deployed	backbone-0.1.0             	0.18.0     
+cilium     	kube-system	1       	2026-07-25 22:17:03.321559105 +0000 UTC	deployed	cilium-1.16.5              	1.16.5     
+traefik    	kube-system	1       	2026-07-25 22:18:24.132716262 +0000 UTC	deployed	traefik-40.1.3+up40.1.0    	v3.7.1     
+traefik-crd	kube-system	1       	2026-07-25 22:18:05.894580715 +0000 UTC	deployed	traefik-crd-40.1.3+up40.1.0	v3.7.1     
+
+## cron jobs enabled ON THE CLUSTER (external ones disabled)
+disabled calendar-sync
+disabled hermes-backup
+disabled gmail-intake
+disabled svn-monthly-report
+disabled ticket-factory-daily
+disabled AC Vinegar Reminder
+ENABLED  memory-consolidate
+ENABLED  memory-ingest
+ENABLED  memory-feedback
+disabled ontology-review-nudge

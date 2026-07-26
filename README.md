@@ -4,8 +4,11 @@ Kubernetes deployment of **Backbone** — my personal always-on agent system: a 
 gateway, an MCP tool server, and a notification bridge, currently running as systemd units on a
 DigitalOcean droplet.
 
-**Status: artifacts built, statically verified, and both images build green in CI. Nothing has
-run on a cluster.**
+**Status: running on a live k3s cluster since 2026-07-25.** Migrated from systemd, via Compose,
+onto k3s + Cilium with sealed-secrets, Keycloak SSO, enforced default-deny NetworkPolicy, a
+hash-chained audit stream, and metrics for a system that exposes none. Every claim below traces
+to a command in [`VALIDATION.md`](./VALIDATION.md) or raw output in
+[`evidence/`](./evidence/).
 
 That sentence is the whole README in miniature, and the rest of this file does not walk it
 back. [`VALIDATION.md`](./VALIDATION.md) is the authoritative record of what has been observed
@@ -118,9 +121,19 @@ copy of a live 22 MB WAL-mode database in 0.18 s.
 and run as uid 65532; the built container serves MCP over HTTP; the chart validates on
 Kubernetes 1.29 through 1.32.
 
-**Not verified** — everything requiring a cluster. No pod has ever been scheduled. Keycloak
-login, NetworkPolicy enforcement, sealed-secrets round-trip, and the Grafana dashboard showing
-real numbers are all unproven.
+**Verified on a live cluster** (23 rows) — k3s v1.36.2 + Cilium 1.16.5:
+
+| | |
+|---|---|
+| A disallowed pod-to-pod connection is **refused**, an allowed one still works | both directions, `evidence/2026-07-25/networkpolicy-proof.txt` |
+| A real **OIDC login** through Keycloak reaches the dashboard | 5-step auth-code flow, `sso-proof.txt` |
+| **sealed-secrets** round-trips 41 real keys | controller decrypts a committable manifest into a live Secret |
+| `readOnlyRootFilesystem: true` **holds** for the gateway | 0 errors once every path the systemd unit named was mounted |
+| **Cost per task: $0.00767** | 1,111 sessions, $8.52 estimated, from `state.db.sessions` |
+| **Recall latency ~3.8 ms**, 0 probe failures | measured by a prober, not read |
+| Workflow runs | gmail-intake 2,895 · memory-ingest 2,352 |
+
+**Still not verified** — seven consecutive days of operation, and per-span tracing.
 
 **Every phase gate is unmet.** The original brief required stopping at each gate until I had
 observed something running; this build was directed to produce the full artifact set without

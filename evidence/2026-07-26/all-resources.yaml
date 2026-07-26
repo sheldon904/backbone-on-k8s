@@ -1,0 +1,4842 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/restartedAt: "2026-07-26T00:27:44Z"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9101"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-07-26T00:27:59Z"
+    generateName: backbone-exporter-8ff4ccb48-
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 8ff4ccb48
+    name: backbone-exporter-8ff4ccb48-hmxlh
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: backbone-exporter-8ff4ccb48
+      uid: 0ea40950-805f-40b5-a2ec-98e1f4909e4c
+    resourceVersion: "6410"
+    uid: 2f4f2152-591b-466b-8092-10f84633dafe
+  spec:
+    automountServiceAccountToken: false
+    containers:
+    - env:
+      - name: PORT
+        value: "9101"
+      - name: BACKBONE_STATE_DIR
+        value: /state
+      - name: PROBE_INTERVAL_SECONDS
+        value: "30"
+      - name: PROBE_QUERY
+        value: backbone
+      image: docker.io/backbone/backbone-exporter:dev
+      imagePullPolicy: Never
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: metrics
+          scheme: HTTP
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 3
+      name: exporter
+      ports:
+      - containerPort: 9101
+        name: metrics
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: metrics
+          scheme: HTTP
+        periodSeconds: 15
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          memory: 128Mi
+        requests:
+          cpu: 25m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /state
+        name: state
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: backbone-k8s
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 10001
+      runAsGroup: 10001
+      runAsNonRoot: true
+      runAsUser: 10001
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: backbone-exporter
+    serviceAccountName: backbone-exporter
+    terminationGracePeriodSeconds: 15
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: state
+      persistentVolumeClaim:
+        claimName: backbone-gateway-state
+  status:
+    allocatedResources:
+      cpu: 25m
+      memory: 64Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:28:00Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:27:59Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:28:01Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:28:01Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:27:59Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 25m
+        memory: 64Mi
+      containerID: containerd://cc82f4ed5089cf6874cf8d4ff84ee666f4a00a14eb7127d473fc4a8da1f7239b
+      image: docker.io/backbone/backbone-exporter:dev
+      imageID: sha256:9ce15351ef9670fc139d528d2c83a036c5b2fc9837134b4d42f887cf72adc9f4
+      lastState: {}
+      name: exporter
+      ready: true
+      resources:
+        limits:
+          memory: 128Mi
+        requests:
+          cpu: 25m
+          memory: 64Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-26T00:28:00Z"
+      user:
+        linux:
+          gid: 10001
+          supplementalGroups:
+          - 10001
+          uid: 10001
+      volumeMounts:
+      - mountPath: /state
+        name: state
+    hostIP: <droplet-ip>
+    hostIPs:
+    - ip: <droplet-ip>
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.42.0.186
+    podIPs:
+    - ip: 10.42.0.186
+    qosClass: Burstable
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        memory: 64Mi
+    startTime: "2026-07-26T00:27:59Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: ca3b6f7b3451d7230411fd4426f46f230bea7418968ce6bbee6eacbf8e8e4f5e
+      kubectl.kubernetes.io/restartedAt: "2026-07-25T22:52:41Z"
+    creationTimestamp: "2026-07-26T00:20:23Z"
+    generateName: backbone-gateway-7fc578fff7-
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 7fc578fff7
+    name: backbone-gateway-7fc578fff7-rpcnr
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: backbone-gateway-7fc578fff7
+      uid: aa551847-fe32-4512-9683-d9e5347f234e
+    resourceVersion: "6126"
+    uid: 3270e8b9-1021-4944-a460-38782aa00288
+  spec:
+    automountServiceAccountToken: false
+    containers:
+    - command:
+      - python
+      - -m
+      - hermes_cli.main
+      - gateway
+      - run
+      env:
+      - name: HERMES_HOME
+        value: /home/hermes/.hermes
+      - name: WEBHOOK_ENABLED
+        value: "true"
+      - name: WEBHOOK_HOST
+        value: 0.0.0.0
+      - name: WEBHOOK_PORT
+        value: "8645"
+      envFrom:
+      - configMapRef:
+          name: backbone-config
+      - secretRef:
+          name: backbone-secrets
+      image: docker.io/backbone/hermes-gateway:dev
+      imagePullPolicy: Never
+      livenessProbe:
+        failureThreshold: 4
+        periodSeconds: 15
+        successThreshold: 1
+        tcpSocket:
+          port: webhook
+        timeoutSeconds: 5
+      name: gateway
+      ports:
+      - containerPort: 8645
+        name: webhook
+        protocol: TCP
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      startupProbe:
+        failureThreshold: 60
+        periodSeconds: 5
+        successThreshold: 1
+        tcpSocket:
+          port: webhook
+        timeoutSeconds: 1
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /home/hermes/.hermes
+        name: state
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /home/hermes/.cache
+        name: cache
+      - mountPath: /home/hermes/.local
+        name: xdg-state
+    - command:
+      - hermes
+      - dashboard
+      - --no-open
+      - --host
+      - 127.0.0.1
+      - --port
+      - "9119"
+      - --skip-build
+      env:
+      - name: HERMES_HOME
+        value: /home/hermes/.hermes
+      envFrom:
+      - secretRef:
+          name: backbone-secrets
+      image: docker.io/backbone/hermes-gateway:dev
+      imagePullPolicy: Never
+      livenessProbe:
+        exec:
+          command:
+          - python
+          - -c
+          - |
+            import sys, urllib.request
+            try:
+                urllib.request.urlopen("http://127.0.0.1:9119/", timeout=4)
+            except Exception as e:
+                sys.exit(f"dashboard probe failed: {e}")
+        failureThreshold: 3
+        initialDelaySeconds: 30
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 6
+      name: dashboard
+      resources:
+        limits:
+          memory: 384Mi
+        requests:
+          cpu: 50m
+          memory: 128Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /home/hermes/.hermes
+        name: state
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /home/hermes/.cache
+        name: cache
+      - mountPath: /home/hermes/.local
+        name: xdg-state
+    - args:
+      - --provider=oidc
+      - --oidc-issuer-url=http://keycloak.identity.svc.cluster.local:8080/realms/backbone
+      - --client-id=backbone-dashboard
+      - --http-address=0.0.0.0:4180
+      - --redirect-url=http://127.0.0.1:4180/oauth2/callback
+      - --upstream=http://127.0.0.1:9119
+      - --cookie-secure=true
+      - --cookie-httponly=true
+      - --cookie-samesite=lax
+      - --cookie-expire=8h
+      - --set-xauthrequest=true
+      - --skip-provider-button=true
+      - --pass-access-token=false
+      - --pass-authorization-header=false
+      - --email-domain=*
+      env:
+      - name: OAUTH2_PROXY_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: client-secret
+            name: oauth2-proxy-secrets
+      - name: OAUTH2_PROXY_COOKIE_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: cookie-secret
+            name: oauth2-proxy-secrets
+      image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /ping
+          port: oauth
+          scheme: HTTP
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: oauth2-proxy
+      ports:
+      - containerPort: 4180
+        name: oauth
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /ready
+          port: oauth
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          memory: 128Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: backbone-k8s
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 10001
+      fsGroupChangePolicy: OnRootMismatch
+      runAsGroup: 10001
+      runAsNonRoot: true
+      runAsUser: 10001
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: backbone-gateway
+    serviceAccountName: backbone-gateway
+    terminationGracePeriodSeconds: 240
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: state
+      persistentVolumeClaim:
+        claimName: backbone-gateway-state
+    - emptyDir:
+        sizeLimit: 512Mi
+      name: tmp
+    - emptyDir:
+        sizeLimit: 1Gi
+      name: cache
+    - emptyDir:
+        sizeLimit: 256Mi
+      name: xdg-state
+  status:
+    allocatedResources:
+      cpu: 310m
+      memory: 672Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:20:23Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:20:23Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:20:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:20:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-26T00:20:23Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 50m
+        memory: 128Mi
+      containerID: containerd://380c1a0cf7fd73813fd658b034bdc960cdb5e5faa94aee5cebfdf1329dc0a62d
+      image: docker.io/backbone/hermes-gateway:dev
+      imageID: sha256:ccca3943e7a9a8e2c474424fd526fbff10959c91d7a293bc2b599fbe3497c984
+      lastState: {}
+      name: dashboard
+      ready: true
+      resources:
+        limits:
+          memory: 384Mi
+        requests:
+          cpu: 50m
+          memory: 128Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-26T00:20:24Z"
+      user:
+        linux:
+          gid: 10001
+          supplementalGroups:
+          - 10001
+          uid: 10001
+      volumeMounts:
+      - mountPath: /home/hermes/.hermes
+        name: state
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /home/hermes/.cache
+        name: cache
+      - mountPath: /home/hermes/.local
+        name: xdg-state
+    - allocatedResources:
+        cpu: 250m
+        memory: 512Mi
+      containerID: containerd://4e1407f9d5841d1b92ab470748ec414a6a7c32e253e0f35fa0d79abaa47f2edf
+      image: docker.io/backbone/hermes-gateway:dev
+      imageID: sha256:ccca3943e7a9a8e2c474424fd526fbff10959c91d7a293bc2b599fbe3497c984
+      lastState: {}
+      name: gateway
+      ready: true
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-26T00:20:24Z"
+      user:
+        linux:
+          gid: 10001
+          supplementalGroups:
+          - 10001
+          uid: 10001
+      volumeMounts:
+      - mountPath: /home/hermes/.hermes
+        name: state
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /home/hermes/.cache
+        name: cache
+      - mountPath: /home/hermes/.local
+        name: xdg-state
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://677288bfd49135b45691533bbc108e24d92f0b78efeea645fd7dc75f72a187f2
+      image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+      imageID: quay.io/oauth2-proxy/oauth2-proxy@sha256:f6a4aa83a27e316114bf79664302b1ffb2cc8ce697fb479273af4feb3fb16fe3
+      lastState: {}
+      name: oauth2-proxy
+      ready: true
+      resources:
+        limits:
+          memory: 128Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-26T00:20:24Z"
+      user:
+        linux:
+          gid: 10001
+          supplementalGroups:
+          - 10001
+          uid: 10001
+    hostIP: <droplet-ip>
+    hostIPs:
+    - ip: <droplet-ip>
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.42.0.120
+    podIPs:
+    - ip: 10.42.0.120
+    qosClass: Burstable
+    resources:
+      limits:
+        memory: 1536Mi
+      requests:
+        cpu: 309m
+        memory: 672Mi
+    startTime: "2026-07-26T00:20:23Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-07-25T23:00:56Z"
+    generateName: backbone-notify-mcp-69777c44d-
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 69777c44d
+    name: backbone-notify-mcp-69777c44d-2qvf2
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: backbone-notify-mcp-69777c44d
+      uid: 588505be-8424-4c3f-8083-77b0c7e09980
+    resourceVersion: "2902"
+    uid: 8b074df3-8d22-498f-9c47-317199659653
+  spec:
+    automountServiceAccountToken: false
+    containers:
+    - env:
+      - name: PORT
+        value: "8080"
+      - name: BACKBONE_AUDIT_DIR
+        value: /var/lib/backbone/audit
+      - name: BACKBONE_NTFY_BASE_URL
+        valueFrom:
+          configMapKeyRef:
+            key: ntfy_base_url
+            name: backbone-config
+      - name: BACKBONE_NTFY_SHORTCUT_NAME
+        valueFrom:
+          configMapKeyRef:
+            key: ntfy_shortcut_name
+            name: backbone-config
+      - name: BACKBONE_NTFY_TOPIC
+        valueFrom:
+          secretKeyRef:
+            key: ntfy_topic
+            name: backbone-secrets
+      - name: TELEGRAM_BOT_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: telegram_bot_token
+            name: backbone-secrets
+      - name: TELEGRAM_HOME_CHANNEL
+        valueFrom:
+          secretKeyRef:
+            key: telegram_home_channel
+            name: backbone-secrets
+      image: docker.io/backbone/notify-mcp:dev
+      imagePullPolicy: Never
+      lifecycle:
+        preStop:
+          sleep:
+            seconds: 5
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: http
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 3
+      name: notify-mcp
+      ports:
+      - containerPort: 8080
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: http
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          memory: 192Mi
+        requests:
+          cpu: 25m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      startupProbe:
+        failureThreshold: 30
+        httpGet:
+          path: /healthz
+          port: http
+          scheme: HTTP
+        periodSeconds: 1
+        successThreshold: 1
+        timeoutSeconds: 1
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/lib/backbone/audit
+        name: audit
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: backbone-k8s
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 65532
+      fsGroupChangePolicy: OnRootMismatch
+      runAsGroup: 65532
+      runAsNonRoot: true
+      runAsUser: 65532
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: backbone-notify-mcp
+    serviceAccountName: backbone-notify-mcp
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    topologySpreadConstraints:
+    - labelSelector:
+        matchLabels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/name: notify-mcp
+      maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+    volumes:
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 16Mi
+      name: tmp
+    - name: audit
+      persistentVolumeClaim:
+        claimName: backbone-notify-mcp-audit
+  status:
+    allocatedResources:
+      cpu: 25m
+      memory: 64Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:57Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:56Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:59Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:59Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:56Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 25m
+        memory: 64Mi
+      containerID: containerd://50e163bfc58d18908554d2bfdc7a7e113b04c1ae02be34214739b23e5cfa22aa
+      image: docker.io/backbone/notify-mcp:dev
+      imageID: sha256:48b5c39f1d6029c50a1959c169eab9335b456d8d9feec62dc83cd16aacc8ebde
+      lastState: {}
+      name: notify-mcp
+      ready: true
+      resources:
+        limits:
+          memory: 192Mi
+        requests:
+          cpu: 25m
+          memory: 64Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-25T23:00:57Z"
+      user:
+        linux:
+          gid: 65532
+          supplementalGroups:
+          - 65532
+          uid: 65532
+      volumeMounts:
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/lib/backbone/audit
+        name: audit
+    hostIP: <droplet-ip>
+    hostIPs:
+    - ip: <droplet-ip>
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.42.0.217
+    podIPs:
+    - ip: 10.42.0.217
+    qosClass: Burstable
+    resources:
+      limits:
+        memory: 192Mi
+      requests:
+        memory: 64Mi
+    startTime: "2026-07-25T23:00:56Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-07-25T23:00:50Z"
+    generateName: backbone-notify-mcp-69777c44d-
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 69777c44d
+    name: backbone-notify-mcp-69777c44d-g5mh9
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: backbone-notify-mcp-69777c44d
+      uid: 588505be-8424-4c3f-8083-77b0c7e09980
+    resourceVersion: "2861"
+    uid: 1ad28f45-6a87-41e8-bde1-6202a5c066d7
+  spec:
+    automountServiceAccountToken: false
+    containers:
+    - env:
+      - name: PORT
+        value: "8080"
+      - name: BACKBONE_AUDIT_DIR
+        value: /var/lib/backbone/audit
+      - name: BACKBONE_NTFY_BASE_URL
+        valueFrom:
+          configMapKeyRef:
+            key: ntfy_base_url
+            name: backbone-config
+      - name: BACKBONE_NTFY_SHORTCUT_NAME
+        valueFrom:
+          configMapKeyRef:
+            key: ntfy_shortcut_name
+            name: backbone-config
+      - name: BACKBONE_NTFY_TOPIC
+        valueFrom:
+          secretKeyRef:
+            key: ntfy_topic
+            name: backbone-secrets
+      - name: TELEGRAM_BOT_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: telegram_bot_token
+            name: backbone-secrets
+      - name: TELEGRAM_HOME_CHANNEL
+        valueFrom:
+          secretKeyRef:
+            key: telegram_home_channel
+            name: backbone-secrets
+      image: docker.io/backbone/notify-mcp:dev
+      imagePullPolicy: Never
+      lifecycle:
+        preStop:
+          sleep:
+            seconds: 5
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: http
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 3
+      name: notify-mcp
+      ports:
+      - containerPort: 8080
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: http
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          memory: 192Mi
+        requests:
+          cpu: 25m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      startupProbe:
+        failureThreshold: 30
+        httpGet:
+          path: /healthz
+          port: http
+          scheme: HTTP
+        periodSeconds: 1
+        successThreshold: 1
+        timeoutSeconds: 1
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/lib/backbone/audit
+        name: audit
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: backbone-k8s
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 65532
+      fsGroupChangePolicy: OnRootMismatch
+      runAsGroup: 65532
+      runAsNonRoot: true
+      runAsUser: 65532
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: backbone-notify-mcp
+    serviceAccountName: backbone-notify-mcp
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    topologySpreadConstraints:
+    - labelSelector:
+        matchLabels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/name: notify-mcp
+      maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+    volumes:
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 16Mi
+      name: tmp
+    - name: audit
+      persistentVolumeClaim:
+        claimName: backbone-notify-mcp-audit
+  status:
+    allocatedResources:
+      cpu: 25m
+      memory: 64Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:55Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:56Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:56Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T23:00:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 25m
+        memory: 64Mi
+      containerID: containerd://914514d848c404ba39f4b09bc36c4100ce3357ec3a9d796fd75fb19f8d2fdcea
+      image: docker.io/backbone/notify-mcp:dev
+      imageID: sha256:48b5c39f1d6029c50a1959c169eab9335b456d8d9feec62dc83cd16aacc8ebde
+      lastState: {}
+      name: notify-mcp
+      ready: true
+      resources:
+        limits:
+          memory: 192Mi
+        requests:
+          cpu: 25m
+          memory: 64Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-25T23:00:55Z"
+      user:
+        linux:
+          gid: 65532
+          supplementalGroups:
+          - 65532
+          uid: 65532
+      volumeMounts:
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/lib/backbone/audit
+        name: audit
+    hostIP: <droplet-ip>
+    hostIPs:
+    - ip: <droplet-ip>
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.42.0.6
+    podIPs:
+    - ip: 10.42.0.6
+    qosClass: Burstable
+    resources:
+      limits:
+        memory: 192Mi
+      requests:
+        memory: 64Mi
+    startTime: "2026-07-25T23:00:54Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-07-25T22:59:29Z"
+    generateName: backbone-ntfy-
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: ntfy
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      apps.kubernetes.io/pod-index: "0"
+      controller-revision-hash: backbone-ntfy-75fc4f5f65
+      helm.sh/chart: backbone-0.1.0
+      statefulset.kubernetes.io/pod-name: backbone-ntfy-0
+    name: backbone-ntfy-0
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: StatefulSet
+      name: backbone-ntfy
+      uid: 4981a3b6-4898-45ef-b892-dfa339837e9c
+    resourceVersion: "2771"
+    uid: c78f9d0f-9eaa-4c0a-a83d-9ece0d608573
+  spec:
+    automountServiceAccountToken: false
+    containers:
+    - args:
+      - serve
+      - --config
+      - /etc/ntfy/server.yml
+      env:
+      - name: NTFY_BASE_URL
+        valueFrom:
+          configMapKeyRef:
+            key: ntfy_base_url
+            name: backbone-config
+      - name: NTFY_UPSTREAM_ACCESS_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: ntfy_upstream_token
+            name: backbone-secrets
+            optional: true
+      image: docker.io/binwiederhier/ntfy:v2.11.0
+      imagePullPolicy: Never
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /v1/health
+          port: http
+          scheme: HTTP
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 3
+      name: ntfy
+      ports:
+      - containerPort: 80
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /v1/health
+          port: http
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          memory: 128Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/cache/ntfy
+        name: cache
+      - mountPath: /etc/ntfy
+        name: config
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    hostname: backbone-ntfy-0
+    nodeName: backbone-k8s
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 2586
+      fsGroupChangePolicy: OnRootMismatch
+      runAsGroup: 2586
+      runAsNonRoot: true
+      runAsUser: 2586
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: backbone-ntfy
+    serviceAccountName: backbone-ntfy
+    subdomain: backbone-ntfy
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: cache
+      persistentVolumeClaim:
+        claimName: cache-backbone-ntfy-0
+    - configMap:
+        defaultMode: 420
+        name: backbone-ntfy-config
+      name: config
+  status:
+    allocatedResources:
+      cpu: 10m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T22:59:30Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T22:59:29Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T22:59:31Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T22:59:31Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-07-25T22:59:29Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://42bd8232b20600f822c789006f25bee1fc21b380b9ac76ca34e9ed52dec1628c
+      image: docker.io/binwiederhier/ntfy:v2.11.0
+      imageID: sha256:e05d03a57f52e92fa345d4f5baecd46e9edb56de23c9f82c4c9de1d85470b914
+      lastState: {}
+      name: ntfy
+      ready: true
+      resources:
+        limits:
+          memory: 128Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-07-25T22:59:30Z"
+      user:
+        linux:
+          gid: 2586
+          supplementalGroups:
+          - 2586
+          uid: 2586
+      volumeMounts:
+      - mountPath: /var/cache/ntfy
+        name: cache
+      - mountPath: /etc/ntfy
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: <droplet-ip>
+    hostIPs:
+    - ip: <droplet-ip>
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.42.0.21
+    podIPs:
+    - ip: 10.42.0.21
+    qosClass: Burstable
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-07-25T22:59:29Z"
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:57:38Z"
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-exporter
+    namespace: backbone
+    resourceVersion: "5132"
+    uid: dba57959-a422-4814-b87c-5c866fa60791
+  spec:
+    clusterIP: 10.43.17.219
+    clusterIPs:
+    - 10.43.17.219
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: metrics
+      port: 9101
+      protocol: TCP
+      targetPort: metrics
+    selector:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/name: backbone-exporter
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-gateway
+    namespace: backbone
+    resourceVersion: "1308"
+    uid: 0c74a96b-56c8-4182-a13f-c4541a0b5459
+  spec:
+    clusterIP: 10.43.32.33
+    clusterIPs:
+    - 10.43.32.33
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: webhook
+      port: 8645
+      protocol: TCP
+      targetPort: webhook
+    selector:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/name: hermes-gateway
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:26:02Z"
+    labels:
+      app.kubernetes.io/component: dashboard
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-gateway-dashboard
+    namespace: backbone
+    resourceVersion: "3948"
+    uid: 89f21cc3-49fd-41a2-a527-63c1ed900ae0
+  spec:
+    clusterIP: 10.43.114.24
+    clusterIPs:
+    - 10.43.114.24
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: oauth
+    selector:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/name: hermes-gateway
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-notify-mcp
+    namespace: backbone
+    resourceVersion: "1306"
+    uid: 7bff593c-ba30-44b1-902d-936960c5f5d0
+  spec:
+    clusterIP: 10.43.3.136
+    clusterIPs:
+    - 10.43.3.136
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: http
+    selector:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/name: notify-mcp
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: ntfy
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-ntfy
+    namespace: backbone
+    resourceVersion: "1312"
+    uid: e89d54bd-ea1d-4cc9-b633-c6f78be2261f
+  spec:
+    clusterIP: 10.43.142.223
+    clusterIPs:
+    - 10.43.142.223
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: http
+    selector:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/name: ntfy
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "5"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:57:39Z"
+    generation: 6
+    labels:
+      app.kubernetes.io/component: metrics
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-exporter
+    namespace: backbone
+    resourceVersion: "6408"
+    uid: 1de795d7-c45a-4b21-a126-1d7b4a67e69b
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 3
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: backbone-exporter
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-07-26T00:27:44Z"
+          prometheus.io/path: /metrics
+          prometheus.io/port: "9101"
+          prometheus.io/scrape: "true"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: backbone-exporter
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - env:
+          - name: PORT
+            value: "9101"
+          - name: BACKBONE_STATE_DIR
+            value: /state
+          - name: PROBE_INTERVAL_SECONDS
+            value: "30"
+          - name: PROBE_QUERY
+            value: backbone
+          image: docker.io/backbone/backbone-exporter:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: exporter
+          ports:
+          - containerPort: 9101
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /state
+            name: state
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-exporter
+        serviceAccountName: backbone-exporter
+        terminationGracePeriodSeconds: 15
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-07-26T00:28:01Z"
+      lastUpdateTime: "2026-07-26T00:28:01Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2026-07-26T00:08:26Z"
+      lastUpdateTime: "2026-07-26T00:28:01Z"
+      message: ReplicaSet "backbone-exporter-8ff4ccb48" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    observedGeneration: 6
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "9"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    generation: 13
+    labels:
+      app.kubernetes.io/component: agent-runtime
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-gateway
+    namespace: backbone
+    resourceVersion: "6132"
+    uid: 61a4377d-01b4-418d-8ea5-96a289d5a9fe
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 3
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: hermes-gateway
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        annotations:
+          checksum/config: ca3b6f7b3451d7230411fd4426f46f230bea7418968ce6bbee6eacbf8e8e4f5e
+          kubectl.kubernetes.io/restartedAt: "2026-07-25T22:52:41Z"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: hermes-gateway
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - command:
+          - python
+          - -m
+          - hermes_cli.main
+          - gateway
+          - run
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          - name: WEBHOOK_ENABLED
+            value: "true"
+          - name: WEBHOOK_HOST
+            value: 0.0.0.0
+          - name: WEBHOOK_PORT
+            value: "8645"
+          envFrom:
+          - configMapRef:
+              name: backbone-config
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 4
+            periodSeconds: 15
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 5
+          name: gateway
+          ports:
+          - containerPort: 8645
+            name: webhook
+            protocol: TCP
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 60
+            periodSeconds: 5
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        - command:
+          - hermes
+          - dashboard
+          - --no-open
+          - --host
+          - 127.0.0.1
+          - --port
+          - "9119"
+          - --skip-build
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          envFrom:
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            exec:
+              command:
+              - python
+              - -c
+              - |
+                import sys, urllib.request
+                try:
+                    urllib.request.urlopen("http://127.0.0.1:9119/", timeout=4)
+                except Exception as e:
+                    sys.exit(f"dashboard probe failed: {e}")
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 6
+          name: dashboard
+          resources:
+            limits:
+              memory: 384Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        - args:
+          - --provider=oidc
+          - --oidc-issuer-url=http://keycloak.identity.svc.cluster.local:8080/realms/backbone
+          - --client-id=backbone-dashboard
+          - --http-address=0.0.0.0:4180
+          - --redirect-url=http://127.0.0.1:4180/oauth2/callback
+          - --upstream=http://127.0.0.1:9119
+          - --cookie-secure=true
+          - --cookie-httponly=true
+          - --cookie-samesite=lax
+          - --cookie-expire=8h
+          - --set-xauthrequest=true
+          - --skip-provider-button=true
+          - --pass-access-token=false
+          - --pass-authorization-header=false
+          - --email-domain=*
+          env:
+          - name: OAUTH2_PROXY_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: client-secret
+                name: oauth2-proxy-secrets
+          - name: OAUTH2_PROXY_COOKIE_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: cookie-secret
+                name: oauth2-proxy-secrets
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ping
+              port: oauth
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: oauth2-proxy
+          ports:
+          - containerPort: 4180
+            name: oauth
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ready
+              port: oauth
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-gateway
+        serviceAccountName: backbone-gateway
+        terminationGracePeriodSeconds: 240
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+        - emptyDir:
+            sizeLimit: 512Mi
+          name: tmp
+        - emptyDir:
+            sizeLimit: 1Gi
+          name: cache
+        - emptyDir:
+            sizeLimit: 256Mi
+          name: xdg-state
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-07-25T22:23:25Z"
+      lastUpdateTime: "2026-07-25T23:38:44Z"
+      message: ReplicaSet "backbone-gateway-676b7f8b7b" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2026-07-26T00:20:33Z"
+      lastUpdateTime: "2026-07-26T00:20:33Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    observedGeneration: 13
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "2"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/component: mcp-tool-server
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-notify-mcp
+    namespace: backbone
+    resourceVersion: "2935"
+    uid: 3756c7a9-49cd-495a-860d-258d6d33240b
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 2
+    revisionHistoryLimit: 3
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: notify-mcp
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          prometheus.io/path: /metrics
+          prometheus.io/port: "8080"
+          prometheus.io/scrape: "true"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: notify-mcp
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - env:
+          - name: PORT
+            value: "8080"
+          - name: BACKBONE_AUDIT_DIR
+            value: /var/lib/backbone/audit
+          - name: BACKBONE_NTFY_BASE_URL
+            valueFrom:
+              configMapKeyRef:
+                key: ntfy_base_url
+                name: backbone-config
+          - name: BACKBONE_NTFY_SHORTCUT_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: ntfy_shortcut_name
+                name: backbone-config
+          - name: BACKBONE_NTFY_TOPIC
+            valueFrom:
+              secretKeyRef:
+                key: ntfy_topic
+                name: backbone-secrets
+          - name: TELEGRAM_BOT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                key: telegram_bot_token
+                name: backbone-secrets
+          - name: TELEGRAM_HOME_CHANNEL
+            valueFrom:
+              secretKeyRef:
+                key: telegram_home_channel
+                name: backbone-secrets
+          image: docker.io/backbone/notify-mcp:dev
+          imagePullPolicy: Never
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: notify-mcp
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 192Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /var/lib/backbone/audit
+            name: audit
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 65532
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-notify-mcp
+        serviceAccountName: backbone-notify-mcp
+        terminationGracePeriodSeconds: 30
+        topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: backbone
+              app.kubernetes.io/name: notify-mcp
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+        volumes:
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+          name: tmp
+        - name: audit
+          persistentVolumeClaim:
+            claimName: backbone-notify-mcp-audit
+  status:
+    availableReplicas: 2
+    conditions:
+    - lastTransitionTime: "2026-07-25T22:23:28Z"
+      lastUpdateTime: "2026-07-25T22:23:28Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2026-07-25T22:23:25Z"
+      lastUpdateTime: "2026-07-25T23:00:59Z"
+      message: ReplicaSet "backbone-notify-mcp-69777c44d" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    observedGeneration: 2
+    readyReplicas: 2
+    replicas: 2
+    terminatingReplicas: 0
+    updatedReplicas: 2
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "1"
+      deployment.kubernetes.io/revision: "2"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-26T00:09:42Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 59bf4cd477
+    name: backbone-exporter-59bf4cd477
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-exporter
+      uid: 1de795d7-c45a-4b21-a126-1d7b4a67e69b
+    resourceVersion: "5772"
+    uid: c54acdc6-8dc1-41fc-99e7-3b8ce95c66c0
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: backbone-exporter
+        pod-template-hash: 59bf4cd477
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-07-26T00:09:27Z"
+          prometheus.io/path: /metrics
+          prometheus.io/port: "9101"
+          prometheus.io/scrape: "true"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: backbone-exporter
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: 59bf4cd477
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - env:
+          - name: PORT
+            value: "9101"
+          - name: BACKBONE_STATE_DIR
+            value: /state
+          - name: PROBE_INTERVAL_SECONDS
+            value: "30"
+          - name: PROBE_QUERY
+            value: backbone
+          image: docker.io/backbone/backbone-exporter:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: exporter
+          ports:
+          - containerPort: 9101
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /state
+            name: state
+            readOnly: true
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          runAsGroup: 10002
+          runAsNonRoot: true
+          runAsUser: 10002
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-exporter
+        serviceAccountName: backbone-exporter
+        terminationGracePeriodSeconds: 15
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+            readOnly: true
+  status:
+    observedGeneration: 2
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "1"
+      deployment.kubernetes.io/revision: "3"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-26T00:13:18Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 69b6f896dd
+    name: backbone-exporter-69b6f896dd
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-exporter
+      uid: 1de795d7-c45a-4b21-a126-1d7b4a67e69b
+    resourceVersion: "5915"
+    uid: 9a5e1c8b-0863-43ca-869b-31cd7c9bd4da
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: backbone-exporter
+        pod-template-hash: 69b6f896dd
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-07-26T00:13:03Z"
+          prometheus.io/path: /metrics
+          prometheus.io/port: "9101"
+          prometheus.io/scrape: "true"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: backbone-exporter
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: 69b6f896dd
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - env:
+          - name: PORT
+            value: "9101"
+          - name: BACKBONE_STATE_DIR
+            value: /state
+          - name: PROBE_INTERVAL_SECONDS
+            value: "30"
+          - name: PROBE_QUERY
+            value: backbone
+          image: docker.io/backbone/backbone-exporter:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: exporter
+          ports:
+          - containerPort: 9101
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /state
+            name: state
+            readOnly: true
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-exporter
+        serviceAccountName: backbone-exporter
+        terminationGracePeriodSeconds: 15
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+            readOnly: true
+  status:
+    observedGeneration: 2
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "1"
+      deployment.kubernetes.io/revision: "4"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-26T00:16:31Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 6ff85fc6cb
+    name: backbone-exporter-6ff85fc6cb
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-exporter
+      uid: 1de795d7-c45a-4b21-a126-1d7b4a67e69b
+    resourceVersion: "6377"
+    uid: 6c92b25c-2987-4407-8aa1-17d457869702
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: backbone-exporter
+        pod-template-hash: 6ff85fc6cb
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-07-26T00:13:03Z"
+          prometheus.io/path: /metrics
+          prometheus.io/port: "9101"
+          prometheus.io/scrape: "true"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: backbone-exporter
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: 6ff85fc6cb
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - env:
+          - name: PORT
+            value: "9101"
+          - name: BACKBONE_STATE_DIR
+            value: /state
+          - name: PROBE_INTERVAL_SECONDS
+            value: "30"
+          - name: PROBE_QUERY
+            value: backbone
+          image: docker.io/backbone/backbone-exporter:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: exporter
+          ports:
+          - containerPort: 9101
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /state
+            name: state
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-exporter
+        serviceAccountName: backbone-exporter
+        terminationGracePeriodSeconds: 15
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+  status:
+    observedGeneration: 2
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "1"
+      deployment.kubernetes.io/revision: "5"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-26T00:27:59Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 8ff4ccb48
+    name: backbone-exporter-8ff4ccb48
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-exporter
+      uid: 1de795d7-c45a-4b21-a126-1d7b4a67e69b
+    resourceVersion: "6407"
+    uid: 0ea40950-805f-40b5-a2ec-98e1f4909e4c
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: backbone-exporter
+        pod-template-hash: 8ff4ccb48
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-07-26T00:27:44Z"
+          prometheus.io/path: /metrics
+          prometheus.io/port: "9101"
+          prometheus.io/scrape: "true"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: backbone-exporter
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: 8ff4ccb48
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - env:
+          - name: PORT
+            value: "9101"
+          - name: BACKBONE_STATE_DIR
+            value: /state
+          - name: PROBE_INTERVAL_SECONDS
+            value: "30"
+          - name: PROBE_QUERY
+            value: backbone
+          image: docker.io/backbone/backbone-exporter:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: exporter
+          ports:
+          - containerPort: 9101
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /state
+            name: state
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-exporter
+        serviceAccountName: backbone-exporter
+        terminationGracePeriodSeconds: 15
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+  status:
+    availableReplicas: 1
+    fullyLabeledReplicas: 1
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "1"
+      deployment.kubernetes.io/revision: "8"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:38:34Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 676b7f8b7b
+    name: backbone-gateway-676b7f8b7b
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-gateway
+      uid: 61a4377d-01b4-418d-8ea5-96a289d5a9fe
+    resourceVersion: "4617"
+    uid: 50772520-9273-4163-888c-29456d11f82f
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: hermes-gateway
+        pod-template-hash: 676b7f8b7b
+    template:
+      metadata:
+        annotations:
+          checksum/config: ca3b6f7b3451d7230411fd4426f46f230bea7418968ce6bbee6eacbf8e8e4f5e
+          kubectl.kubernetes.io/restartedAt: "2026-07-25T22:52:41Z"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: hermes-gateway
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: 676b7f8b7b
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - command:
+          - python
+          - -m
+          - hermes_cli.main
+          - gateway
+          - run
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          - name: WEBHOOK_ENABLED
+            value: "true"
+          - name: WEBHOOK_HOST
+            value: 0.0.0.0
+          - name: WEBHOOK_PORT
+            value: "8645"
+          envFrom:
+          - configMapRef:
+              name: backbone-config
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 4
+            periodSeconds: 15
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 5
+          name: gateway
+          ports:
+          - containerPort: 8645
+            name: webhook
+            protocol: TCP
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 60
+            periodSeconds: 5
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        - command:
+          - hermes
+          - dashboard
+          - --no-open
+          - --host
+          - 127.0.0.1
+          - --port
+          - "9119"
+          - --skip-build
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          envFrom:
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            exec:
+              command:
+              - python
+              - -c
+              - |
+                import sys, urllib.request
+                try:
+                    urllib.request.urlopen("http://127.0.0.1:9119/", timeout=4)
+                except Exception as e:
+                    sys.exit(f"dashboard probe failed: {e}")
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 6
+          name: dashboard
+          resources:
+            limits:
+              memory: 384Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        - args:
+          - --provider=oidc
+          - --oidc-issuer-url=http://keycloak.identity.svc.cluster.local:8080/realms/backbone
+          - --client-id=backbone-dashboard
+          - --http-address=0.0.0.0:4180
+          - --redirect-url=http://127.0.0.1:4180/oauth2/callback
+          - --upstream=http://127.0.0.1:9119
+          - --cookie-secure=false
+          - --cookie-httponly=true
+          - --cookie-samesite=lax
+          - --cookie-expire=8h
+          - --set-xauthrequest=true
+          - --skip-provider-button=true
+          - --pass-access-token=false
+          - --pass-authorization-header=false
+          - --email-domain=*
+          env:
+          - name: OAUTH2_PROXY_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: client-secret
+                name: oauth2-proxy-secrets
+          - name: OAUTH2_PROXY_COOKIE_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: cookie-secret
+                name: oauth2-proxy-secrets
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ping
+              port: oauth
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: oauth2-proxy
+          ports:
+          - containerPort: 4180
+            name: oauth
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ready
+              port: oauth
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-gateway
+        serviceAccountName: backbone-gateway
+        terminationGracePeriodSeconds: 240
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+        - emptyDir:
+            sizeLimit: 512Mi
+          name: tmp
+        - emptyDir:
+            sizeLimit: 1Gi
+          name: cache
+        - emptyDir:
+            sizeLimit: 256Mi
+          name: xdg-state
+  status:
+    observedGeneration: 2
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "1"
+      deployment.kubernetes.io/revision: "6"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:26:04Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 7dbc66d79b
+    name: backbone-gateway-7dbc66d79b
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-gateway
+      uid: 61a4377d-01b4-418d-8ea5-96a289d5a9fe
+    resourceVersion: "4384"
+    uid: 9c46c839-610e-4004-be13-cfd8ae0d93b0
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: hermes-gateway
+        pod-template-hash: 7dbc66d79b
+    template:
+      metadata:
+        annotations:
+          checksum/config: ca3b6f7b3451d7230411fd4426f46f230bea7418968ce6bbee6eacbf8e8e4f5e
+          kubectl.kubernetes.io/restartedAt: "2026-07-25T22:52:41Z"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: hermes-gateway
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: 7dbc66d79b
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - command:
+          - python
+          - -m
+          - hermes_cli.main
+          - gateway
+          - run
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          - name: WEBHOOK_ENABLED
+            value: "true"
+          - name: WEBHOOK_HOST
+            value: 0.0.0.0
+          - name: WEBHOOK_PORT
+            value: "8645"
+          envFrom:
+          - configMapRef:
+              name: backbone-config
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 4
+            periodSeconds: 15
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 5
+          name: gateway
+          ports:
+          - containerPort: 8645
+            name: webhook
+            protocol: TCP
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 60
+            periodSeconds: 5
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        - command:
+          - hermes
+          - dashboard
+          - --no-open
+          - --host
+          - 127.0.0.1
+          - --port
+          - "9119"
+          - --skip-build
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          envFrom:
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            exec:
+              command:
+              - python
+              - -c
+              - |
+                import sys, urllib.request
+                try:
+                    urllib.request.urlopen("http://127.0.0.1:9119/", timeout=4)
+                except Exception as e:
+                    sys.exit(f"dashboard probe failed: {e}")
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 6
+          name: dashboard
+          resources:
+            limits:
+              memory: 384Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        - args:
+          - --provider=oidc
+          - --oidc-issuer-url=http://keycloak.identity.svc.cluster.local:8080/realms/backbone
+          - --client-id=backbone-dashboard
+          - --http-address=0.0.0.0:4180
+          - --upstream=http://127.0.0.1:9119
+          - --cookie-secure=true
+          - --cookie-httponly=true
+          - --cookie-samesite=lax
+          - --cookie-expire=8h
+          - --set-xauthrequest=true
+          - --skip-provider-button=true
+          - --pass-access-token=false
+          - --pass-authorization-header=false
+          - --email-domain=*
+          env:
+          - name: OAUTH2_PROXY_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: client-secret
+                name: oauth2-proxy-secrets
+          - name: OAUTH2_PROXY_COOKIE_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: cookie-secret
+                name: oauth2-proxy-secrets
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ping
+              port: oauth
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: oauth2-proxy
+          ports:
+          - containerPort: 4180
+            name: oauth
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ready
+              port: oauth
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-gateway
+        serviceAccountName: backbone-gateway
+        terminationGracePeriodSeconds: 240
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+        - emptyDir:
+            sizeLimit: 512Mi
+          name: tmp
+        - emptyDir:
+            sizeLimit: 1Gi
+          name: cache
+        - emptyDir:
+            sizeLimit: 256Mi
+          name: xdg-state
+  status:
+    observedGeneration: 2
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "1"
+      deployment.kubernetes.io/revision: "9"
+      deployment.kubernetes.io/revision-history: "7"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:36:22Z"
+    generation: 7
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 7fc578fff7
+    name: backbone-gateway-7fc578fff7
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-gateway
+      uid: 61a4377d-01b4-418d-8ea5-96a289d5a9fe
+    resourceVersion: "6131"
+    uid: aa551847-fe32-4512-9683-d9e5347f234e
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: hermes-gateway
+        pod-template-hash: 7fc578fff7
+    template:
+      metadata:
+        annotations:
+          checksum/config: ca3b6f7b3451d7230411fd4426f46f230bea7418968ce6bbee6eacbf8e8e4f5e
+          kubectl.kubernetes.io/restartedAt: "2026-07-25T22:52:41Z"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: hermes-gateway
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: 7fc578fff7
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - command:
+          - python
+          - -m
+          - hermes_cli.main
+          - gateway
+          - run
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          - name: WEBHOOK_ENABLED
+            value: "true"
+          - name: WEBHOOK_HOST
+            value: 0.0.0.0
+          - name: WEBHOOK_PORT
+            value: "8645"
+          envFrom:
+          - configMapRef:
+              name: backbone-config
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 4
+            periodSeconds: 15
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 5
+          name: gateway
+          ports:
+          - containerPort: 8645
+            name: webhook
+            protocol: TCP
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 60
+            periodSeconds: 5
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        - command:
+          - hermes
+          - dashboard
+          - --no-open
+          - --host
+          - 127.0.0.1
+          - --port
+          - "9119"
+          - --skip-build
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          envFrom:
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            exec:
+              command:
+              - python
+              - -c
+              - |
+                import sys, urllib.request
+                try:
+                    urllib.request.urlopen("http://127.0.0.1:9119/", timeout=4)
+                except Exception as e:
+                    sys.exit(f"dashboard probe failed: {e}")
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 6
+          name: dashboard
+          resources:
+            limits:
+              memory: 384Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        - args:
+          - --provider=oidc
+          - --oidc-issuer-url=http://keycloak.identity.svc.cluster.local:8080/realms/backbone
+          - --client-id=backbone-dashboard
+          - --http-address=0.0.0.0:4180
+          - --redirect-url=http://127.0.0.1:4180/oauth2/callback
+          - --upstream=http://127.0.0.1:9119
+          - --cookie-secure=true
+          - --cookie-httponly=true
+          - --cookie-samesite=lax
+          - --cookie-expire=8h
+          - --set-xauthrequest=true
+          - --skip-provider-button=true
+          - --pass-access-token=false
+          - --pass-authorization-header=false
+          - --email-domain=*
+          env:
+          - name: OAUTH2_PROXY_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: client-secret
+                name: oauth2-proxy-secrets
+          - name: OAUTH2_PROXY_COOKIE_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: cookie-secret
+                name: oauth2-proxy-secrets
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ping
+              port: oauth
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: oauth2-proxy
+          ports:
+          - containerPort: 4180
+            name: oauth
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ready
+              port: oauth
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-gateway
+        serviceAccountName: backbone-gateway
+        terminationGracePeriodSeconds: 240
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+        - emptyDir:
+            sizeLimit: 512Mi
+          name: tmp
+        - emptyDir:
+            sizeLimit: 1Gi
+          name: cache
+        - emptyDir:
+            sizeLimit: 256Mi
+          name: xdg-state
+  status:
+    availableReplicas: 1
+    fullyLabeledReplicas: 1
+    observedGeneration: 7
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "1"
+      deployment.kubernetes.io/revision: "5"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:13:11Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: dfb5bbd7f
+    name: backbone-gateway-dfb5bbd7f
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-gateway
+      uid: 61a4377d-01b4-418d-8ea5-96a289d5a9fe
+    resourceVersion: "3972"
+    uid: 4272929f-6827-49da-8b5e-32f202df3b69
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: hermes-gateway
+        pod-template-hash: dfb5bbd7f
+    template:
+      metadata:
+        annotations:
+          checksum/config: ca3b6f7b3451d7230411fd4426f46f230bea7418968ce6bbee6eacbf8e8e4f5e
+          kubectl.kubernetes.io/restartedAt: "2026-07-25T22:52:41Z"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: hermes-gateway
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: dfb5bbd7f
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - command:
+          - python
+          - -m
+          - hermes_cli.main
+          - gateway
+          - run
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          - name: WEBHOOK_ENABLED
+            value: "true"
+          - name: WEBHOOK_HOST
+            value: 0.0.0.0
+          - name: WEBHOOK_PORT
+            value: "8645"
+          envFrom:
+          - configMapRef:
+              name: backbone-config
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 4
+            periodSeconds: 15
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 5
+          name: gateway
+          ports:
+          - containerPort: 8645
+            name: webhook
+            protocol: TCP
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 60
+            periodSeconds: 5
+            successThreshold: 1
+            tcpSocket:
+              port: webhook
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        - command:
+          - hermes
+          - dashboard
+          - --no-open
+          - --host
+          - 127.0.0.1
+          - --port
+          - "9119"
+          - --skip-build
+          env:
+          - name: HERMES_HOME
+            value: /home/hermes/.hermes
+          envFrom:
+          - secretRef:
+              name: backbone-secrets
+          image: docker.io/backbone/hermes-gateway:dev
+          imagePullPolicy: Never
+          livenessProbe:
+            exec:
+              command:
+              - python
+              - -c
+              - |
+                import sys, urllib.request
+                try:
+                    urllib.request.urlopen("http://127.0.0.1:9119/", timeout=4)
+                except Exception as e:
+                    sys.exit(f"dashboard probe failed: {e}")
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 6
+          name: dashboard
+          resources:
+            limits:
+              memory: 384Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /home/hermes/.hermes
+            name: state
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/hermes/.cache
+            name: cache
+          - mountPath: /home/hermes/.local
+            name: xdg-state
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 10001
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-gateway
+        serviceAccountName: backbone-gateway
+        terminationGracePeriodSeconds: 240
+        volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: backbone-gateway-state
+        - emptyDir:
+            sizeLimit: 512Mi
+          name: tmp
+        - emptyDir:
+            sizeLimit: 1Gi
+          name: cache
+        - emptyDir:
+            sizeLimit: 256Mi
+          name: xdg-state
+  status:
+    observedGeneration: 2
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "2"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:00:50Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 69777c44d
+    name: backbone-notify-mcp-69777c44d
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-notify-mcp
+      uid: 3756c7a9-49cd-495a-860d-258d6d33240b
+    resourceVersion: "2905"
+    uid: 588505be-8424-4c3f-8083-77b0c7e09980
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: notify-mcp
+        pod-template-hash: 69777c44d
+    template:
+      metadata:
+        annotations:
+          prometheus.io/path: /metrics
+          prometheus.io/port: "8080"
+          prometheus.io/scrape: "true"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: notify-mcp
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: 69777c44d
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - env:
+          - name: PORT
+            value: "8080"
+          - name: BACKBONE_AUDIT_DIR
+            value: /var/lib/backbone/audit
+          - name: BACKBONE_NTFY_BASE_URL
+            valueFrom:
+              configMapKeyRef:
+                key: ntfy_base_url
+                name: backbone-config
+          - name: BACKBONE_NTFY_SHORTCUT_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: ntfy_shortcut_name
+                name: backbone-config
+          - name: BACKBONE_NTFY_TOPIC
+            valueFrom:
+              secretKeyRef:
+                key: ntfy_topic
+                name: backbone-secrets
+          - name: TELEGRAM_BOT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                key: telegram_bot_token
+                name: backbone-secrets
+          - name: TELEGRAM_HOME_CHANNEL
+            valueFrom:
+              secretKeyRef:
+                key: telegram_home_channel
+                name: backbone-secrets
+          image: docker.io/backbone/notify-mcp:dev
+          imagePullPolicy: Never
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: notify-mcp
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 192Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /var/lib/backbone/audit
+            name: audit
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 65532
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-notify-mcp
+        serviceAccountName: backbone-notify-mcp
+        terminationGracePeriodSeconds: 30
+        topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: backbone
+              app.kubernetes.io/name: notify-mcp
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+        volumes:
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+          name: tmp
+        - name: audit
+          persistentVolumeClaim:
+            claimName: backbone-notify-mcp-audit
+  status:
+    availableReplicas: 2
+    fullyLabeledReplicas: 2
+    observedGeneration: 2
+    readyReplicas: 2
+    replicas: 2
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "1"
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    generation: 3
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+      pod-template-hash: 9bf7cb5b9
+    name: backbone-notify-mcp-9bf7cb5b9
+    namespace: backbone
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: backbone-notify-mcp
+      uid: 3756c7a9-49cd-495a-860d-258d6d33240b
+    resourceVersion: "2934"
+    uid: 545445ff-bf84-49ff-a3f2-aa6e72fe8da1
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: notify-mcp
+        pod-template-hash: 9bf7cb5b9
+    template:
+      metadata:
+        annotations:
+          prometheus.io/path: /metrics
+          prometheus.io/port: "8080"
+          prometheus.io/scrape: "true"
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: notify-mcp
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+          pod-template-hash: 9bf7cb5b9
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - env:
+          - name: PORT
+            value: "8080"
+          - name: BACKBONE_NTFY_BASE_URL
+            valueFrom:
+              configMapKeyRef:
+                key: ntfy_base_url
+                name: backbone-config
+          - name: BACKBONE_NTFY_SHORTCUT_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: ntfy_shortcut_name
+                name: backbone-config
+          - name: BACKBONE_NTFY_TOPIC
+            valueFrom:
+              secretKeyRef:
+                key: ntfy_topic
+                name: backbone-secrets
+          - name: TELEGRAM_BOT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                key: telegram_bot_token
+                name: backbone-secrets
+          - name: TELEGRAM_HOME_CHANNEL
+            valueFrom:
+              secretKeyRef:
+                key: telegram_home_channel
+                name: backbone-secrets
+          image: docker.io/backbone/notify-mcp:dev
+          imagePullPolicy: Never
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: notify-mcp
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 192Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 65532
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-notify-mcp
+        serviceAccountName: backbone-notify-mcp
+        terminationGracePeriodSeconds: 30
+        topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: backbone
+              app.kubernetes.io/name: notify-mcp
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+        volumes:
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+          name: tmp
+  status:
+    observedGeneration: 3
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: StatefulSet
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/component: notification-bridge
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: ntfy
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-ntfy
+    namespace: backbone
+    resourceVersion: "2769"
+    uid: 4981a3b6-4898-45ef-b892-dfa339837e9c
+  spec:
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    podManagementPolicy: OrderedReady
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: ntfy
+    serviceName: backbone-ntfy
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/instance: backbone
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: ntfy
+          app.kubernetes.io/part-of: backbone
+          app.kubernetes.io/version: 0.18.0
+          helm.sh/chart: backbone-0.1.0
+      spec:
+        automountServiceAccountToken: false
+        containers:
+        - args:
+          - serve
+          - --config
+          - /etc/ntfy/server.yml
+          env:
+          - name: NTFY_BASE_URL
+            valueFrom:
+              configMapKeyRef:
+                key: ntfy_base_url
+                name: backbone-config
+          - name: NTFY_UPSTREAM_ACCESS_TOKEN
+            valueFrom:
+              secretKeyRef:
+                key: ntfy_upstream_token
+                name: backbone-secrets
+                optional: true
+          image: docker.io/binwiederhier/ntfy:v2.11.0
+          imagePullPolicy: Never
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: http
+              scheme: HTTP
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: ntfy
+          ports:
+          - containerPort: 80
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /v1/health
+              port: http
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /var/cache/ntfy
+            name: cache
+          - mountPath: /etc/ntfy
+            name: config
+            readOnly: true
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          fsGroup: 2586
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 2586
+          runAsNonRoot: true
+          runAsUser: 2586
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: backbone-ntfy
+        serviceAccountName: backbone-ntfy
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: backbone-ntfy-config
+          name: config
+    updateStrategy:
+      rollingUpdate:
+        partition: 0
+      type: RollingUpdate
+    volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: cache
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+        volumeMode: Filesystem
+      status:
+        phase: Pending
+  status:
+    availableReplicas: 1
+    collisionCount: 0
+    currentReplicas: 1
+    currentRevision: backbone-ntfy-75fc4f5f65
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+    updateRevision: backbone-ntfy-75fc4f5f65
+    updatedReplicas: 1
+- apiVersion: batch/v1
+  kind: CronJob
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/component: retention
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-audit-rotate
+    namespace: backbone
+    resourceVersion: "2817"
+    uid: 989a7a83-1674-4806-8dc9-83fdff8d7afd
+  spec:
+    concurrencyPolicy: Forbid
+    failedJobsHistoryLimit: 3
+    jobTemplate:
+      metadata: {}
+      spec:
+        backoffLimit: 2
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/instance: backbone
+              app.kubernetes.io/managed-by: Helm
+              app.kubernetes.io/name: audit-rotate
+              app.kubernetes.io/part-of: backbone
+              app.kubernetes.io/version: 0.18.0
+              helm.sh/chart: backbone-0.1.0
+          spec:
+            automountServiceAccountToken: false
+            containers:
+            - args:
+              - |
+                set -eu
+                RETENTION=90
+                cd /home/hermes/.hermes
+                echo "audit rotation: retention ${RETENTION}d, $(date -Iseconds)"
+                f="logs/agent.log"
+                if [ -f "$f" ]; then
+                  sz=$(wc -c < "$f")
+                  # Rotate at 64 MB so a single file cannot fill the volume
+                  # between runs. Copy-then-truncate, not mv: the gateway holds
+                  # an open file descriptor, and mv would leave it writing to
+                  # an unlinked inode that nothing can read.
+                  if [ "$sz" -gt 67108864 ]; then
+                    cp "$f" "${f}.$(date +%Y%m%d)"
+                    : > "$f"
+                    echo "rotated $f (${sz} bytes)"
+                  else
+                    echo "skip $f (${sz} bytes, under threshold)"
+                  fi
+                fi
+                f="audit/audit-*.jsonl"
+                if [ -f "$f" ]; then
+                  sz=$(wc -c < "$f")
+                  # Rotate at 64 MB so a single file cannot fill the volume
+                  # between runs. Copy-then-truncate, not mv: the gateway holds
+                  # an open file descriptor, and mv would leave it writing to
+                  # an unlinked inode that nothing can read.
+                  if [ "$sz" -gt 67108864 ]; then
+                    cp "$f" "${f}.$(date +%Y%m%d)"
+                    : > "$f"
+                    echo "rotated $f (${sz} bytes)"
+                  else
+                    echo "skip $f (${sz} bytes, under threshold)"
+                  fi
+                fi
+                # Prune anything older than the retention window.
+                find /home/hermes/.hermes/logs -type f -name '*.[0-9]*' \
+                  -mtime "+${RETENTION}" -print -delete 2>/dev/null || true
+                echo "audit rotation complete"
+              command:
+              - /bin/sh
+              - -c
+              image: docker.io/backbone/hermes-gateway:dev
+              imagePullPolicy: IfNotPresent
+              name: rotate
+              resources:
+                limits:
+                  memory: 256Mi
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                  - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              volumeMounts:
+              - mountPath: /home/hermes/.hermes
+                name: state
+              - mountPath: /tmp
+                name: tmp
+            dnsPolicy: ClusterFirst
+            restartPolicy: OnFailure
+            schedulerName: default-scheduler
+            securityContext:
+              fsGroup: 10001
+              fsGroupChangePolicy: OnRootMismatch
+              runAsGroup: 10001
+              runAsNonRoot: true
+              runAsUser: 10001
+              seccompProfile:
+                type: RuntimeDefault
+            terminationGracePeriodSeconds: 30
+            volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: backbone-gateway-state
+            - emptyDir: {}
+              name: tmp
+    schedule: 17 4 * * *
+    startingDeadlineSeconds: 3600
+    successfulJobsHistoryLimit: 3
+    suspend: false
+  status: {}
+- apiVersion: batch/v1
+  kind: CronJob
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/component: backup
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-backup
+    namespace: backbone
+    resourceVersion: "1328"
+    uid: 57bea98b-e4b3-4dfa-b786-939ef35d46fc
+  spec:
+    concurrencyPolicy: Forbid
+    failedJobsHistoryLimit: 3
+    jobTemplate:
+      metadata: {}
+      spec:
+        backoffLimit: 2
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/instance: backbone
+              app.kubernetes.io/managed-by: Helm
+              app.kubernetes.io/name: backup
+              app.kubernetes.io/part-of: backbone
+              app.kubernetes.io/version: 0.18.0
+              helm.sh/chart: backbone-0.1.0
+          spec:
+            automountServiceAccountToken: false
+            containers:
+            - args:
+              - |
+                import datetime, os, pathlib, sqlite3, sys
+
+                src = pathlib.Path("/home/hermes/.hermes")
+                dest = src / "backups" / datetime.date.today().isoformat()
+                dest.mkdir(parents=True, exist_ok=True)
+
+                # sqlite3's online backup API takes a consistent snapshot of a
+                # database that another process is actively writing. This is
+                # the whole reason this job is Python and not a shell `cp`.
+                ok = True
+                for db in sorted(src.glob("*.db")):
+                    try:
+                        with sqlite3.connect(f"file:{db}?mode=ro", uri=True) as s, \
+                             sqlite3.connect(dest / db.name) as d:
+                            s.backup(d)
+                        print(f"backed up {db.name} ({db.stat().st_size} bytes)")
+                    except Exception as e:
+                        ok = False
+                        print(f"FAILED {db.name}: {e}", file=sys.stderr)
+
+                # Prune old backup directories.
+                cutoff = datetime.date.today() - datetime.timedelta(
+                    days=14)
+                for d in (src / "backups").iterdir():
+                    if not d.is_dir():
+                        continue
+                    try:
+                        if datetime.date.fromisoformat(d.name) < cutoff:
+                            for f in d.iterdir():
+                                f.unlink()
+                            d.rmdir()
+                            print(f"pruned {d.name}")
+                    except ValueError:
+                        pass  # not a dated directory, leave it alone
+
+                # NOTE: this writes to the SAME volume as the data. That is not
+                # a backup, it is a copy -- it survives file deletion and
+                # nothing else. Shipping off-cluster is tracked as S2 in
+                # docs/02-STATE-TRADEOFFS.md and is NOT done here.
+                sys.exit(0 if ok else 1)
+              command:
+              - python
+              - -c
+              image: docker.io/backbone/hermes-gateway:dev
+              imagePullPolicy: IfNotPresent
+              name: backup
+              resources:
+                limits:
+                  memory: 512Mi
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                  - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              volumeMounts:
+              - mountPath: /home/hermes/.hermes
+                name: state
+              - mountPath: /tmp
+                name: tmp
+            dnsPolicy: ClusterFirst
+            restartPolicy: OnFailure
+            schedulerName: default-scheduler
+            securityContext:
+              fsGroup: 10001
+              fsGroupChangePolicy: OnRootMismatch
+              runAsGroup: 10001
+              runAsNonRoot: true
+              runAsUser: 10001
+              seccompProfile:
+                type: RuntimeDefault
+            terminationGracePeriodSeconds: 30
+            volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: backbone-gateway-state
+            - emptyDir: {}
+              name: tmp
+    schedule: 0 7 * * *
+    successfulJobsHistoryLimit: 3
+    suspend: false
+  status: {}
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    annotations:
+      helm.sh/resource-policy: keep
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+      pv.kubernetes.io/bind-completed: "yes"
+      pv.kubernetes.io/bound-by-controller: "yes"
+      volume.beta.kubernetes.io/storage-provisioner: rancher.io/local-path
+      volume.kubernetes.io/selected-node: backbone-k8s
+      volume.kubernetes.io/storage-provisioner: rancher.io/local-path
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    finalizers:
+    - kubernetes.io/pvc-protection
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: hermes-gateway
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-gateway-state
+    namespace: backbone
+    resourceVersion: "1451"
+    uid: 869516cf-531b-4597-a4f1-a57d1aba502b
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: local-path
+    volumeMode: Filesystem
+    volumeName: pvc-869516cf-531b-4597-a4f1-a57d1aba502b
+  status:
+    accessModes:
+    - ReadWriteOnce
+    capacity:
+      storage: 20Gi
+    phase: Bound
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    annotations:
+      helm.sh/resource-policy: keep
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+      pv.kubernetes.io/bind-completed: "yes"
+      pv.kubernetes.io/bound-by-controller: "yes"
+      volume.beta.kubernetes.io/storage-provisioner: rancher.io/local-path
+      volume.kubernetes.io/selected-node: backbone-k8s
+      volume.kubernetes.io/storage-provisioner: rancher.io/local-path
+    creationTimestamp: "2026-07-25T23:00:50Z"
+    finalizers:
+    - kubernetes.io/pvc-protection
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-notify-mcp-audit
+    namespace: backbone
+    resourceVersion: "2845"
+    uid: e5a3ae57-0461-41ae-a218-17b8a12323c9
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi
+    storageClassName: local-path
+    volumeMode: Filesystem
+    volumeName: pvc-e5a3ae57-0461-41ae-a218-17b8a12323c9
+  status:
+    accessModes:
+    - ReadWriteOnce
+    capacity:
+      storage: 5Gi
+    phase: Bound
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    annotations:
+      pv.kubernetes.io/bind-completed: "yes"
+      pv.kubernetes.io/bound-by-controller: "yes"
+      volume.beta.kubernetes.io/storage-provisioner: rancher.io/local-path
+      volume.kubernetes.io/selected-node: backbone-k8s
+      volume.kubernetes.io/storage-provisioner: rancher.io/local-path
+    creationTimestamp: "2026-07-25T22:23:25Z"
+    finalizers:
+    - kubernetes.io/pvc-protection
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/name: ntfy
+    name: cache-backbone-ntfy-0
+    namespace: backbone
+    resourceVersion: "1435"
+    uid: 3342a47c-1fa2-41dd-b9bd-248729d90836
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 2Gi
+    storageClassName: local-path
+    volumeMode: Filesystem
+    volumeName: pvc-3342a47c-1fa2-41dd-b9bd-248729d90836
+  status:
+    accessModes:
+    - ReadWriteOnce
+    capacity:
+      storage: 2Gi
+    phase: Bound
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:24Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-allow-dns
+    namespace: backbone
+    resourceVersion: "1294"
+    uid: 90a56c82-c80d-4e88-a947-05c237a9f23f
+  spec:
+    egress:
+    - ports:
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+    podSelector: {}
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:24Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-allow-external-egress
+    namespace: backbone
+    resourceVersion: "1291"
+    uid: 4f1db407-9cba-4907-add3-9218a49becbd
+  spec:
+    egress:
+    - ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+      to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+          except:
+          - 169.254.0.0/16
+          - 10.0.0.0/8
+          - 172.16.0.0/12
+          - 192.168.0.0/16
+    podSelector:
+      matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+        - hermes-gateway
+        - notify-mcp
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:24Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-default-deny
+    namespace: backbone
+    resourceVersion: "1289"
+    uid: 16feb38e-8844-432b-b628-fa70cde6815d
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:57:38Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-exporter-scrape
+    namespace: backbone
+    resourceVersion: "5129"
+    uid: cfa364f4-7d87-41c3-b263-ad4439fc138f
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: monitoring
+      ports:
+      - port: 9101
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: backbone-exporter
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T23:32:44Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-gateway-egress-keycloak
+    namespace: backbone
+    resourceVersion: "4259"
+    uid: e6ad6cfb-0e04-4588-9b2f-1b9ac7c991c8
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: identity
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: hermes-gateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:41:56Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-gateway-egress-notify
+    namespace: backbone
+    resourceVersion: "2164"
+    uid: 818e0398-2e6f-44b3-a891-c8b75386257f
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: backbone
+            app.kubernetes.io/name: notify-mcp
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: hermes-gateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:24Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-gateway-to-notify
+    namespace: backbone
+    resourceVersion: "1290"
+    uid: c94f9f2c-49ea-45fc-8008-4b6f80ede729
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: backbone
+            app.kubernetes.io/name: hermes-gateway
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: notify-mcp
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:24Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-ingress-to-gateway
+    namespace: backbone
+    resourceVersion: "3946"
+    uid: d0b88b11-9c05-4f13-8500-2c15a306e59c
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+      ports:
+      - port: 8645
+        protocol: TCP
+      - port: 4180
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: hermes-gateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:41:56Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-notify-egress-ntfy
+    namespace: backbone
+    resourceVersion: "2165"
+    uid: 8010713e-c981-452b-ad62-43bfb8b0e982
+  spec:
+    egress:
+    - ports:
+      - port: 80
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: backbone
+            app.kubernetes.io/name: ntfy
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: notify-mcp
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: backbone
+      meta.helm.sh/release-namespace: backbone
+    creationTimestamp: "2026-07-25T22:23:24Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/instance: backbone
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: backbone
+      app.kubernetes.io/version: 0.18.0
+      helm.sh/chart: backbone-0.1.0
+    name: backbone-notify-to-ntfy
+    namespace: backbone
+    resourceVersion: "1292"
+    uid: 9e912a2d-c89a-4a51-be66-d86887a8ec3b
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/instance: backbone
+            app.kubernetes.io/name: notify-mcp
+      ports:
+      - port: 80
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: backbone
+        app.kubernetes.io/name: ntfy
+    policyTypes:
+    - Ingress
+kind: List
+metadata:
+  resourceVersion: ""
