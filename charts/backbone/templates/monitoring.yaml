@@ -19,6 +19,29 @@ spec:
     - port: http
       path: /metrics
       interval: {{ .Values.monitoring.serviceMonitor.interval }}
+{{- if .Values.exporter.enabled }}
+---
+# The exporter is the only source for recall latency, workflow success rate and
+# cost per task -- the three metrics the brief named. Without this ServiceMonitor
+# they exist and are never collected.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $full }}-exporter
+  namespace: {{ $ns }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.serviceMonitor.labels }}{{ toYaml . | nindent 4 }}{{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backbone-exporter
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.monitoring.serviceMonitor.interval }}
+{{- end }}
 {{- end }}
 {{- if .Values.monitoring.prometheusRule.enabled }}
 ---
