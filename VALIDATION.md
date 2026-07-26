@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. **38 verified locally, 8 in CI, 23 on a live cluster, 9 still open.**
+Last updated: 2026-07-25. **38 verified locally, 8 in CI, 25 on a live cluster, 7 still open.**
 
 ---
 
@@ -103,6 +103,8 @@ k3s v1.36.2 + **Cilium 1.16.5** (flannel disabled — it cannot enforce NetworkP
 | K20 | **Recall latency is live on the cluster** | `backbone_recall_latency_seconds` — 4 probes, sum 0.0153 s, ~3.8 ms mean, **0 failures**, against the restored 22 MB memory store |
 | K21 | **Workflow success rate is live** | `backbone_workflow_runs_total` — gmail-intake 2,895 · memory-ingest 2,352 · calendar-sync 9,847, from the restored scheduler table |
 | K22 | **Cost per task is live** | 1,111 sessions, $8.52 estimated → **$0.00767/task**; 231 M cache-read vs 74.7 M input tokens |
+| K24 | **NetworkPolicy is genuinely enforced** (was C16) | Cilium reports `ingress=both` on every backbone endpoint, and a non-allowlisted pod is refused while an allowlisted one succeeds |
+| K25 | **`docs/OPERATIONS.md` contains real incidents** (was C9) | **9 entries**, every one from something that actually happened, including the wrong hypothesis |
 | K23 | The memory substrate reads on-cluster | facts 1,604 · entities 929 · edges 3,254 · recall events 2,727 |
 | K17 | **A real OIDC login succeeds through Keycloak** | 5-step authorization-code flow: 302 → login form → code issued → `_oauth2_proxy` session cookie → dashboard HTTP 200. Closes C5 |
 | K18 | The dashboard is **unreachable without auth** | unauthenticated `GET /` → 302 to Keycloak, never the dashboard |
@@ -117,10 +119,8 @@ These are unproven. No document in this repo may state them as fact.
 |---|---|---|
 | C7 | Grafana panels move when the system is used | live cluster + a real workload |
 | C8 | Daily workflows run on the cluster for 7 consecutive days | Phase 6, the actual point of the project |
-| C9 | `docs/OPERATIONS.md` contains real incidents | can only be earned by operating it |
 | C14 | `config.yaml` is assembled at startup from ConfigMap + Secret | **not implemented.** hermes-agent reads one config.yaml; an init container or startup wrapper has to compose it. A real gap, not a detail — docs/04-SECRETS.md §3 |
 | C15 | Langfuse actually receives a trace | the plugin and the env names are now confirmed (L31); whether traces arrive needs a running gateway plus a Langfuse instance |
-| C16 | NetworkPolicy is **enforced** | k3s ships flannel, which does not enforce NetworkPolicy at all. Needs `--flannel-backend=none --disable-network-policy` plus Calico or Cilium. Until then the policies are accepted by the API server and enforced by nothing |
 | C17 | Sealed-secrets key rotation | the controller supports it; nothing in this repo drives it |
 | C18 | etcd encryption at rest | off by default on k3s; `--secrets-encryption` is a bootstrap flag, out of scope for the chart |
 | C19 | The gateway image reproduces the **running** system | only 1 of 3 local patches to upstream is vendored. `plugins/memory/holographic/store.py` (a transaction-leak fix) and `tools/memory_tool.py` (archival overflow) are not. An image built today is missing both — docs/00-CURRENT-STATE.md §12 |
