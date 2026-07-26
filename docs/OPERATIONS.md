@@ -627,3 +627,87 @@ workflow has *executed on this cluster* is **C8b, and it is open.**
 look like a healthy service with no recent activity — flat, high, and plausible. If workflow
 execution matters, alert on `backbone_workflow_last_run_timestamp_seconds` going stale, not on
 the run count being non-zero.
+
+## 2026-07-26 — getting one real workflow to actually run: four failures deep
+
+Closing C8b — *has any scheduled workflow executed on this cluster?* — took four distinct
+fixes. The scheduler was healthy the entire time.
+
+**Starting state.** Ticker heartbeat current to the second, `ticker_last_success` equal to it,
+`hermes cron status` reporting "3 active job(s)". Zero jobs had ever run.
+
+**1. Job scripts were never transferred.**
+
+```
+Status: script failed
+Script not found: /home/hermes/.hermes/scripts/memory-ingest.sh
+```
+
+The job table came across in the state restore; the scripts it points at did not. Transferred
+412 KB of `~/.hermes/scripts/` — scanned first, no credentials, and the three internal memory
+jobs make **zero** external calls.
+
+**2. The scripts hardcode the source install layout.**
+
+```sh
+PY="$HERMES_HOME/hermes-agent/venv/bin/python3"
+```
+
+In the container the interpreter is at `/opt/venv`. Fixed with a shim, as an **initContainer**
+rather than a Dockerfile `RUN`, because `~/.hermes` is a mounted PVC — anything baked into the
+image is masked by the mount.
+
+**3. The shim cannot be a symlink.** This is the good one.
+
+```
+via /opt/venv/bin/python                       -> prefix=/opt/venv,  sqlite_vec OK
+via .../hermes-agent/venv/bin/python3 (symlink) -> prefix=/usr/local, ModuleNotFoundError
+```
+
+PEP 405 resolves `sys.prefix` from the **invoked** path: Python looks for `pyvenv.cfg` next to
+the executable it was called as, finds none beside the symlink, and silently falls back to the
+system interpreter. The symptom is `ModuleNotFoundError` for a package `pip list` shows as
+installed, on an interpreter that works perfectly by its real path. Replaced with wrapper
+scripts that `exec` the real binary.
+
+The initContainer now **asserts** the shim reaches the venv — it imports `sqlite_vec` and prints
+`sys.prefix` — so a regression fails the pod start instead of failing every cron job silently.
+
+**4. Writing the wrapper hit "Read-only file system" on a writable PVC.**
+
+```
+cannot create /home/hermes/.hermes/hermes-agent/venv/bin/python: Read-only file system
+```
+
+A previous revision had left symlinks at those paths, and shell redirection **follows** a
+symlink — so `>` landed on `/opt/venv/bin/python` on the read-only root. The error names a
+writable path while the failure is at the link target. `rm -f` before writing.
+
+**Plus:** the memory plugin's dependencies (`sqlite_vec`, `numpy`, `networkx`) are covered by no
+upstream extra. Added to the image; `torch` and `sentence-transformers` deliberately left out,
+because ~2 GB for embedding generation the ingest path does not need belongs in a separate image.
+
+**Result — real work, on the cluster:**
+
+```
+$ hermes cron run memory-feedback
+Ran now: succeeded.
+
+recall_log rows: 2727 | surfaced-but-never-engaged (14d, >=5 turns): 12
+  #824  0.44 -> 0.42 [surfaced-unengaged]
+  #1174 0.54 -> 0.52 [surfaced-unengaged]
+  ...
+applied: 5 demotions | pruned 0 old recall_log rows
+
+memory-feedback  completed=25 (was 24)  last_run=2026-07-25T21:04:18
+memory-ingest    completed=2358         last_run=2026-07-25T21:02:44
+```
+
+Trust-decay applied to real facts in the real memory store, by a scheduled job, on the cluster.
+
+**Kept as a lesson.** Four failures, and the scheduler's own health signals were green through
+all of them: heartbeat fresh, status "3 active jobs", job table showing healthy counts. Every
+failure was written to a per-run output file that nothing surfaces. **A scheduler that reports
+it is running is telling you about the ticker, not about the work.** The metric that would have
+caught this on day one is `backbone_workflow_last_run_timestamp_seconds` going stale — which is
+why it is now a dashboard panel rather than only a counter.

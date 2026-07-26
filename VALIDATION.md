@@ -11,7 +11,7 @@ RAM, no Docker, no Kubernetes, no cluster access. That is why several rows that 
 be trivial to verify sit in section 3. It is a real constraint, not an excuse — see
 [§4 Why this environment cannot verify more](#4-why-this-environment-cannot-verify-more).
 
-Last updated: 2026-07-25. **38 verified locally, 8 in CI, 28 on a live cluster, 6 still open.**
+Last updated: 2026-07-25. **38 verified locally, 8 in CI, 30 on a live cluster, 6 still open.**
 
 ---
 
@@ -103,6 +103,8 @@ k3s v1.36.2 + **Cilium 1.16.5** (flannel disabled — it cannot enforce NetworkP
 | K20 | **Recall latency is live on the cluster** | `backbone_recall_latency_seconds` — 4 probes, sum 0.0153 s, ~3.8 ms mean, **0 failures**, against the restored 22 MB memory store |
 | K21 | Workflow success rate is **exported and queryable** — see the caveat below |  `backbone_workflow_runs_total` — gmail-intake 2,895 · memory-ingest 2,352 · calendar-sync 9,847, from the restored scheduler table |
 | K22 | **Cost per task is live** | 1,111 sessions, $8.52 estimated → **$0.00767/task**; 231 M cache-read vs 74.7 M input tokens |
+| K29 | **A real scheduled workflow executed on the cluster** (was C8b) | `hermes cron run memory-feedback` → `Ran now: succeeded.` It read 2,727 `recall_log` rows, found 12 surfaced-but-never-engaged facts and applied **5 trust demotions** to real facts (`#824 0.44→0.42`). Counter 24→25, `last_run=2026-07-25T21:04:18` |
+| K30 | The venv shim reaches the real interpreter | initContainer asserts `sys.prefix=/opt/venv` and `sqlite_vec` importable, failing pod start on regression |
 | K26 | **Grafana renders the dashboard with live data** (was C7) | 21 panels imported at `/d/backbone-k8s`; queried through Grafana's own `/api/ds/query`: cost/task 0.007667, gmail-intake 2895, recall 3.27 ms, facts 1604 |
 | K27 | Prometheus scrapes both Backbone targets | `backbone-exporter up`, `backbone-notify-mcp up` |
 | K28 | The alert rules load | 5 rules in group `backbone.rules` |
@@ -120,7 +122,6 @@ These are unproven. No document in this repo may state them as fact.
 
 | # | Claim | Blocked on |
 |---|---|---|
-| C8b | **Any** scheduled workflow has actually executed on the cluster | The gateway has run **zero** cron jobs. 3 internal jobs are enabled; the log shows no execution. The counters on the dashboard are restored history from the source droplet. This is the weakest claim in the project and it is not yet true |
 | C8 | Daily workflows run on the cluster for 7 consecutive days | Phase 6, the actual point of the project |
 | C14 | `config.yaml` is assembled at startup from ConfigMap + Secret | **not implemented.** hermes-agent reads one config.yaml; an init container or startup wrapper has to compose it. A real gap, not a detail — docs/04-SECRETS.md §3 |
 | C15 | Langfuse actually receives a trace | the plugin and the env names are now confirmed (L31); whether traces arrive needs a running gateway plus a Langfuse instance |
