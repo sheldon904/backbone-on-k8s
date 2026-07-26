@@ -187,6 +187,33 @@ spec:
       port: 80
       targetPort: http
       protocol: TCP
+{{- if .Values.networkPolicy.enabled }}
+---
+# Prometheus must reach notify-mcp too. Fourth instance of the same trap: the
+# exporter got a scrape allow rule and this did not, so Prometheus reported
+# health=down on both replicas while the metrics endpoint was perfectly healthy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-scrape
+  namespace: {{ include "backbone.namespace" . }}
+  labels:
+    {{- include "backbone.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: notify-mcp
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.monitoring.namespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.notifyMcp.port }}
+{{- end }}
 {{- if .Values.notifyMcp.podDisruptionBudget.enabled }}
 ---
 apiVersion: policy/v1

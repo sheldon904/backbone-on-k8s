@@ -187,6 +187,12 @@ def collect() -> str:
     # cron/jobs.json. Kubernetes CronJob metrics cannot see these at all -- they
     # are not CronJobs, they are entries in a file the gateway owns.
     jobs_file = STATE_DIR / "cron" / "jobs.json"
+    # NOTE the label is `workflow`, not `job`.
+    #
+    # `job` is a RESERVED Prometheus label: the scrape config overwrites it with
+    # the scrape job name, so `backbone_workflow_runs_total{job="gmail-intake"}`
+    # silently becomes {job="backbone-exporter"} and the series is unqueryable
+    # by the name you gave it. Cost me a debugging round; see docs/OPERATIONS.md.
     metric("backbone_workflow_runs_total", "counter", "Completed runs per scheduled workflow.")
     metric_emitted = set()
     enabled_lines: list[str] = []
@@ -201,17 +207,17 @@ def collect() -> str:
                 name = _esc(str(job.get("name", "unknown")))
                 completed = (job.get("repeat") or {}).get("completed")
                 if isinstance(completed, int) and name not in metric_emitted:
-                    out.append(f'backbone_workflow_runs_total{{job="{name}"}} {completed}')
+                    out.append(f'backbone_workflow_runs_total{{workflow="{name}"}} {completed}')
                     metric_emitted.add(name)
                 enabled_lines.append(
-                    f'backbone_workflow_enabled{{job="{name}"}} {1 if job.get("enabled") else 0}'
+                    f'backbone_workflow_enabled{{workflow="{name}"}} {1 if job.get("enabled") else 0}'
                 )
                 last = job.get("last_run_at")
                 if isinstance(last, str) and last:
                     try:
                         ts = time.mktime(time.strptime(last[:19], "%Y-%m-%dT%H:%M:%S"))
                         last_run_lines.append(
-                            f'backbone_workflow_last_run_timestamp_seconds{{job="{name}"}} {ts:.0f}'
+                            f'backbone_workflow_last_run_timestamp_seconds{{workflow="{name}"}} {ts:.0f}'
                         )
                     except ValueError:
                         pass

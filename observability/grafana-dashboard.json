@@ -713,7 +713,7 @@
       "targets": [
         {
           "expr": "backbone_workflow_runs_total",
-          "legendFormat": "{{job}}",
+          "legendFormat": "{{workflow}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -747,7 +747,7 @@
       "targets": [
         {
           "expr": "time() - backbone_workflow_last_run_timestamp_seconds",
-          "legendFormat": "{{job}}",
+          "legendFormat": "{{workflow}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -781,7 +781,7 @@
       },
       "targets": [
         {
-          "expr": "sum(backbone_cost_usd_total) / clamp_min(backbone_sessions_total, 1)",
+          "expr": "sum(backbone_cost_usd_total) / clamp_min(sum(backbone_sessions_total), 1)",
           "legendFormat": "USD / session",
           "refId": "A",
           "datasource": {
