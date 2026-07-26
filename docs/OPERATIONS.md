@@ -588,3 +588,42 @@ series, a down target, an empty vector, zero rules. Absence is the hardest failu
 a dashboard, because a blank panel and a healthy-but-idle panel look identical. The only thing
 that caught them was querying each metric by name and asserting a value came back — which is
 now what `evidence/2026-07-26/grafana-proof.txt` records.
+
+## 2026-07-26 — correcting myself: the workflow counters are history, not activity
+
+I reported "workflow success rate is live" on the strength of Grafana returning
+`backbone_workflow_runs_total{workflow="gmail-intake"} = 2895`. The number is real, the scrape
+is real, the panel renders. **The interpretation was wrong.**
+
+Those counters came from `cron/jobs.json`, which was restored from the source droplet. 2,895 is
+the count of times *the droplet* ran gmail-intake. On the cluster that job is disabled — I
+disabled it myself, deliberately, to prevent double-processing.
+
+Checking whether the cluster has run anything at all:
+
+```
+$ kubectl -n backbone logs deploy/backbone-gateway -c gateway --since=2h | grep -ci cron
+1                      # the startup banner, nothing else
+$ kubectl -n backbone get pod -l app.kubernetes.io/name=hermes-gateway
+age: 24m
+```
+
+**Zero cron executions on the cluster.** Three internal jobs are enabled (`memory-ingest`,
+`memory-feedback`, `memory-consolidate`) and none has fired.
+
+**Why this is the entry that matters most.** This project's entire premise is not claiming
+things that have not been observed, and I made exactly the error it exists to prevent: I saw a
+real metric, from a real scrape, on a real dashboard, and read it as evidence of something it
+was not evidence of. The number was never in question. What it *meant* was.
+
+A restored counter and a live counter are indistinguishable in Prometheus. There is no
+`is_this_actually_happening` label. The only way to tell them apart is to check the thing the
+metric is supposed to be about — did a job run? — and I checked the metric instead.
+
+**Corrected:** `backbone_workflow_runs_total` is exported and queryable (K21). Whether any
+workflow has *executed on this cluster* is **C8b, and it is open.**
+
+**Also worth noting for anyone reading the dashboard:** a counter restored from a backup will
+look like a healthy service with no recent activity — flat, high, and plausible. If workflow
+execution matters, alert on `backbone_workflow_last_run_timestamp_seconds` going stale, not on
+the run count being non-zero.

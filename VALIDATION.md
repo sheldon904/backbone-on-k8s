@@ -101,7 +101,7 @@ k3s v1.36.2 + **Cilium 1.16.5** (flannel disabled — it cannot enforce NetworkP
 | K14 | Cilium reports policy enforcement on every backbone endpoint | `ingress=both` (ingress+egress) on all 4 |
 | K15 | **The dashboard runs** — web assets built in-image | `dashboard: ready=true restarts=0`; log: `using dist at .../hermes_cli/web_dist`. Four containers healthy: gateway, dashboard, 2x notify-mcp, ntfy |
 | K20 | **Recall latency is live on the cluster** | `backbone_recall_latency_seconds` — 4 probes, sum 0.0153 s, ~3.8 ms mean, **0 failures**, against the restored 22 MB memory store |
-| K21 | **Workflow success rate is live** | `backbone_workflow_runs_total` — gmail-intake 2,895 · memory-ingest 2,352 · calendar-sync 9,847, from the restored scheduler table |
+| K21 | Workflow success rate is **exported and queryable** — see the caveat below |  `backbone_workflow_runs_total` — gmail-intake 2,895 · memory-ingest 2,352 · calendar-sync 9,847, from the restored scheduler table |
 | K22 | **Cost per task is live** | 1,111 sessions, $8.52 estimated → **$0.00767/task**; 231 M cache-read vs 74.7 M input tokens |
 | K26 | **Grafana renders the dashboard with live data** (was C7) | 21 panels imported at `/d/backbone-k8s`; queried through Grafana's own `/api/ds/query`: cost/task 0.007667, gmail-intake 2895, recall 3.27 ms, facts 1604 |
 | K27 | Prometheus scrapes both Backbone targets | `backbone-exporter up`, `backbone-notify-mcp up` |
@@ -120,6 +120,7 @@ These are unproven. No document in this repo may state them as fact.
 
 | # | Claim | Blocked on |
 |---|---|---|
+| C8b | **Any** scheduled workflow has actually executed on the cluster | The gateway has run **zero** cron jobs. 3 internal jobs are enabled; the log shows no execution. The counters on the dashboard are restored history from the source droplet. This is the weakest claim in the project and it is not yet true |
 | C8 | Daily workflows run on the cluster for 7 consecutive days | Phase 6, the actual point of the project |
 | C14 | `config.yaml` is assembled at startup from ConfigMap + Secret | **not implemented.** hermes-agent reads one config.yaml; an init container or startup wrapper has to compose it. A real gap, not a detail — docs/04-SECRETS.md §3 |
 | C15 | Langfuse actually receives a trace | the plugin and the env names are now confirmed (L31); whether traces arrive needs a running gateway plus a Langfuse instance |
