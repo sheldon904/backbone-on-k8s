@@ -19,7 +19,9 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 9101
 USER 10002:10002
 
-# The state volume is mounted READ-ONLY. The exporter opens every database with
-# `file:...?mode=ro`, so it cannot write to the gateway's stores even if the
-# mount were writable -- two independent guarantees rather than one.
+# The read-only guarantee is at the CONNECTION level: every database is opened
+# with `file:...?mode=ro`, which SQLite enforces. The volume mount itself cannot
+# be readOnly -- a WAL-mode reader must be able to create the `-shm` coordination
+# file, and a readOnly mount makes every open fail with
+# "unable to open database file". See charts/.../exporter.yaml.
 CMD ["python", "/app/exporter.py"]

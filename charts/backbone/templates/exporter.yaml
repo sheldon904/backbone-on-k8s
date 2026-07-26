@@ -77,12 +77,25 @@ spec:
           securityContext:
             {{- include "backbone.containerSecurityContext" dict | nindent 12 }}
           volumeMounts:
-            # READ-ONLY. Belt and braces: the mount is readOnly and the exporter
-            # also opens every database with `mode=ro`. Neither alone would be
-            # wrong; both means a code change cannot make it a writer.
+            # NOT readOnly, and that is deliberate -- it was, and it did not work.
+            #
+            # Opening a WAL-mode SQLite database read-only STILL requires creating
+            # the `-shm` shared-memory coordination file. A readOnly mount forbids
+            # that, and every open fails with the unhelpful
+            #   sqlite3.OperationalError: unable to open database file
+            # even though the file is present, mode 0644, and owned by this uid.
+            #
+            # The read-only guarantee therefore lives where it actually holds: the
+            # exporter opens EVERY database with `file:...?mode=ro`, which SQLite
+            # enforces at the connection level. Multiple processes sharing one
+            # SQLite file on a host is what SQLite is built for; the -shm is how
+            # they coordinate.
+            #
+            # `immutable=1` would also silence the error and is the WRONG fix --
+            # it asserts the file never changes, and the gateway is writing to it.
+            # docs/OPERATIONS.md, 2026-07-26.
             - name: state
               mountPath: /state
-              readOnly: true
           resources:
             {{- toYaml .Values.exporter.resources | nindent 12 }}
           livenessProbe:
@@ -100,7 +113,6 @@ spec:
         - name: state
           persistentVolumeClaim:
             claimName: {{ default (printf "%s-state" $gwName) .Values.gateway.persistence.existingClaim }}
-            readOnly: true
       terminationGracePeriodSeconds: 15
 ---
 apiVersion: v1
