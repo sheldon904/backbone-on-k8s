@@ -59,6 +59,22 @@ ARG HERMES_EXTRAS="mcp,cron,messaging,web,cli"
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir "./hermes-agent[${HERMES_EXTRAS}]"
 
+# Runtime dependencies of the MEMORY PLUGIN, which no upstream extra covers.
+#
+# The hybrid memory substrate is a plugin, and its scheduled jobs
+# (memory-ingest, memory-feedback, memory-consolidate) import sqlite_vec,
+# numpy and networkx. Installing hermes-agent alone produces a gateway that
+# starts cleanly, ticks its scheduler on time, and fails EVERY memory job with
+#   ModuleNotFoundError: No module named 'sqlite_vec'
+# -- visible only in the per-run output files.
+#
+# Deliberately NOT installed: torch and sentence-transformers, which the source
+# venv also carries. They add roughly 2 GB for embedding generation that the
+# ingest path does not need at runtime. If a job turns out to require them, the
+# right answer is a separate embedding image, not a 3 GB gateway.
+ARG MEMORY_PLUGIN_DEPS="sqlite-vec==0.1.9 numpy networkx"
+RUN pip install --no-cache-dir ${MEMORY_PLUGIN_DEPS}
+
 # ---- web assets -----------------------------------------------------------
 # The pip wheel ships NO built frontend: `find /opt/venv -name web_dist` returns
 # nothing, and `hermes dashboard --skip-build` therefore fails with
