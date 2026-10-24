@@ -6,7 +6,7 @@
   "description": "Backbone notify MCP over Streamable HTTP. Port of the stdio server in Backbone/adapters/mcp-governance so it can run as its own pod.",
   "main": "dist/server.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsc",
@@ -15,7 +15,7 @@
     "test": "node --test dist/*.test.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.18.0"
+    "@modelcontextprotocol/sdk": "^1.32.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
